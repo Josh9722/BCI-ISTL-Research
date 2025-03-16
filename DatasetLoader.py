@@ -129,22 +129,6 @@ class DatasetLoader:
 
 
 
-
-    def filter_by_channels(self, channel_names):
-        if self.raw is None:
-            raise ValueError("Raw data is not loaded. Please load the raw data before filtering by channels.")
-
-        # Get indices of the specified channels
-        channel_indices = mne.pick_channels(self.raw.info['ch_names'], include=channel_names)
-
-        if not channel_indices:
-            raise ValueError(f"None of the specified channels {channel_names} are present in the dataset.")
-
-        # Filter raw data to include only the specified channels
-        print(f"Filtering dataset to include channels: {channel_names}")
-        self.raw.pick_channels(channel_names)
-        print("Channel filtering complete.")
-
     def save_raw_data(self, filename):
         """
         Saves the raw data to a file for later use.

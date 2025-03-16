@@ -15,14 +15,14 @@ from ModelTrainer import ModelTrainer
 # from ModelTester import ModelTester
 
 # ------------- Loading Dataset -------------
-loader = DatasetLoader(subjects=range(1, 2), runs=[4, 8, 12], channels=['Fc5.', 'C3..', 'C4..', 'Cz..'])
-
+# loader = DatasetLoader(subjects=range(1, 60), runs=[4, 8, 12], channels=['Fc5.', 'C3..', 'C4..', 'Cz..'])
+loader = DatasetLoader(subjects=range(1, 60), runs=[4, 8, 12])
 
 # Load raw EEG data
 loader.load_raw_data()
-loader.epochs.plot()
-plt.show()
-
+# loader.epochs.plot()
+# plt.show()
+epochs = loader.epochs
 
 print()
 print("Data loaded successfully!")
@@ -33,8 +33,8 @@ print("Data loaded successfully!")
 
 # ------------- Training Model -------------
 #trainer = ModelTrainer()
-# trainer = ModelTrainer(epoched)
-# trainer.train()
+trainer = ModelTrainer(epochs)
+trainer.train()
 
 # ------------- Testing Model -------------
 # tester = ModelTester()
