@@ -3,13 +3,13 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, DepthwiseConv2D, SeparableConv2D
 from tensorflow.keras.layers import BatchNormalization, Activation, AveragePooling2D, Dropout, Flatten, Dense
 from tensorflow.keras.constraints import max_norm
-from tensorflow.keras.callbacks import Callback  # ✅ Fix: Import Callback
+from tensorflow.keras.callbacks import Callback
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
-import matplotlib.pyplot as plt  # ✅ Add this import
+import matplotlib.pyplot as plt  
 
 
 class ModelTrainer:
@@ -28,15 +28,15 @@ class ModelTrainer:
         # Convert labels from {1, 2, 3} → {0, 1, 2} for TensorFlow compatibility
         y = y - 1  
 
-        # 🚀 Remove one-hot encoding (if previously used)
-        # ✅ Make sure `y` remains integers, not categorical
+        # Remove one-hot encoding (if previously used)
+        # Make sure `y` remains integers, not categorical
 
         # Compute class weights
         classes = np.unique(y)
         class_weights = compute_class_weight(class_weight='balanced', classes=classes, y=y)
         class_weights = {i: w for i, w in enumerate(class_weights)}
 
-        print(f"\n📊 Computed Class Weights: {class_weights}")
+        print(f"\nComputed Class Weights: {class_weights}")
         return X, y, class_weights
 
 
@@ -82,7 +82,7 @@ class ModelTrainer:
         # Build EEGNet model
         self.build_model(nb_classes=3, Chans=X.shape[1], Samples=X.shape[2])
 
-        print("\n🚀 Starting Training 🚀")
+        print("\nStarting Training ")
         history = self.model.fit(
             X, y, epochs=epochs, batch_size=batch_size,
             class_weight=class_weights, validation_split=validation_split,
@@ -90,7 +90,7 @@ class ModelTrainer:
             callbacks=[CustomLogger()]
         )
 
-        print("\n✅ Training Complete! Evaluating Performance...")
+        print("\nTraining Complete! Evaluating Performance...")
 
         # Split data for evaluation
         val_size = int(validation_split * len(y))
@@ -104,7 +104,7 @@ class ModelTrainer:
         print("\n📊 Classification Report:\n")
         print(classification_report(y_test, y_pred, target_names=class_labels))
 
-        # ✅ Plot Training Curves
+        # Plot Training Curves
         plt.figure(figsize=(12, 4))
         plt.subplot(1, 2, 1)
         plt.plot(history.history['loss'], label="Train Loss")

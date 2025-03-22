@@ -1,6 +1,7 @@
 import mne
 from mne.io import concatenate_raws
 import numpy as np
+import pandas as pd 
 
 class DatasetLoader:
     def __init__(self, subjects=range(1, 80), runs=[4, 8, 12], channels=None):
@@ -46,57 +47,62 @@ class DatasetLoader:
         and concatenates all epochs into a single Epochs object.
         Boundary annotations (e.g., marking discontinuities) are removed per file before epoching.
         If a list of channels is provided, the epochs are filtered to include only those channels.
+        Additionally, attaches metadata for each epoch indicating the subject ID.
         """
         print("Loading dataset for each subject and each run...")
         all_epochs = []  # list to store epochs from each file
-        
+
         # Iterate over subjects
         for sub_id in self.subjects:
             # Get file paths for the subject's runs
             paths = mne.datasets.eegbci.load_data(sub_id, self.runs)
             self.file_paths.extend(paths)
-            
+
             # Process each file
             for path in paths:
                 print(f"Processing file: {path}")
                 raw = mne.io.read_raw_edf(path, preload=True, stim_channel='auto', verbose='WARNING')
-                
+
                 # Remove boundary annotations (if any)
                 boundary_idxs = [i for i, desc in enumerate(raw.annotations.description)
-                                 if 'boundary' in desc.lower()]
+                                if 'boundary' in desc.lower()]
                 if boundary_idxs:
                     raw.annotations.delete(boundary_idxs)
-                
+
                 # Extract events and event mapping
                 events, event_id = mne.events_from_annotations(raw)
                 print(f"Event mappings for {path}: {event_id}")
                 print("Annotations for this file:")
                 print(raw.annotations)
-                
+
                 if not events.any():
                     print(f"No events found in {path}. Skipping...")
                     continue
-                
+
                 # Select EEG channels (this will later be filtered again if needed)
                 picks = mne.pick_types(raw.info, eeg=True)
-                
-                # Create epochs from this file (adjust tmin and tmax as needed)
+
+                # Create a metadata DataFrame to attach the subject ID for each epoch
+                metadata = pd.DataFrame({'subject': [sub_id] * len(events)})
+
+                # Create epochs from this file (adjust tmin and tmax as needed), including metadata
                 epochs = mne.Epochs(raw, events, event_id, tmin=1, tmax=4.1,
                                     proj=False, picks=picks, baseline=None,
-                                    preload=True, reject_by_annotation=False)
+                                    preload=True, reject_by_annotation=False,
+                                    metadata=metadata)
                 print(f"Extracted {len(epochs)} epochs from {path}")
                 all_epochs.append(epochs)
-        
+
         if not all_epochs:
             raise ValueError("No usable epochs were found across all files.")
-        
+
         # Concatenate epochs from all files
         self.epochs = mne.concatenate_epochs(all_epochs)
         self.events = self.epochs.events
         self.event_id = self.epochs.event_id
         print("Epochs for all runs and subjects have been concatenated.")
         print(f"Total number of epochs: {len(self.epochs)}")
-        
+
         # If channels are provided, filter the epochs to include only those channels.
         if self.channels is not None:
             print(f"Filtering concatenated epochs to include channels: {self.channels}")
