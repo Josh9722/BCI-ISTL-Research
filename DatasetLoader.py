@@ -20,12 +20,8 @@ class DatasetLoader:
         self.event_id = None
         self.file_paths = []      # store file paths
 
-    import mne
-from mne.io import concatenate_raws
-import numpy as np
-
 class DatasetLoader:
-    def __init__(self, subjects=range(1, 80), runs=[4, 8, 12], channels=None):
+    def __init__(self, subjects=range(1, 80), runs=[4, 8, 12], exclude_subjects = None, channels=None):
         """
         Initializes the DatasetLoader class.
         
@@ -34,6 +30,10 @@ class DatasetLoader:
         :param channels: Optional list of channel names to filter the data.
         """
         self.subjects = subjects
+        if exclude_subjects is not None:
+            self.subjects = [sub for sub in self.subjects if sub not in exclude_subjects]
+            
+
         self.runs = runs
         self.channels = channels  # optional channel filter
         self.epochs = None        # concatenated epochs will be stored here
@@ -55,13 +55,12 @@ class DatasetLoader:
         # Iterate over subjects
         for sub_id in self.subjects:
             # Get file paths for the subject's runs
-            paths = mne.datasets.eegbci.load_data(sub_id, self.runs)
+            paths = mne.datasets.eegbci.load_data(sub_id, self.runs, verbose=False)
             self.file_paths.extend(paths)
 
             # Process each file
             for path in paths:
-                print(f"Processing file: {path}")
-                raw = mne.io.read_raw_edf(path, preload=True, stim_channel='auto', verbose='WARNING')
+                raw = mne.io.read_raw_edf(path, preload=True, stim_channel='auto', verbose=False)
 
                 # Remove boundary annotations (if any)
                 boundary_idxs = [i for i, desc in enumerate(raw.annotations.description)
@@ -70,10 +69,7 @@ class DatasetLoader:
                     raw.annotations.delete(boundary_idxs)
 
                 # Extract events and event mapping
-                events, event_id = mne.events_from_annotations(raw)
-                print(f"Event mappings for {path}: {event_id}")
-                print("Annotations for this file:")
-                print(raw.annotations)
+                events, event_id = mne.events_from_annotations(raw, verbose=False)
 
                 if not events.any():
                     print(f"No events found in {path}. Skipping...")
@@ -89,7 +85,7 @@ class DatasetLoader:
                 epochs = mne.Epochs(raw, events, event_id, tmin=1, tmax=4.1,
                                     proj=False, picks=picks, baseline=None,
                                     preload=True, reject_by_annotation=False,
-                                    metadata=metadata)
+                                    metadata=metadata, verbose=False)
                 print(f"Extracted {len(epochs)} epochs from {path}")
                 all_epochs.append(epochs)
 
@@ -97,7 +93,7 @@ class DatasetLoader:
             raise ValueError("No usable epochs were found across all files.")
 
         # Concatenate epochs from all files
-        self.epochs = mne.concatenate_epochs(all_epochs)
+        self.epochs = mne.concatenate_epochs(all_epochs, verbose=False)
         self.events = self.epochs.events
         self.event_id = self.epochs.event_id
         print("Epochs for all runs and subjects have been concatenated.")
