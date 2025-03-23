@@ -10,6 +10,7 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt  
+from sklearn.utils import shuffle
 
 
 class ModelTrainer:
@@ -28,13 +29,13 @@ class ModelTrainer:
         # Convert labels from {1, 2, 3} → {0, 1, 2} for TensorFlow compatibility
         y = y - 1  
 
-        # Remove one-hot encoding (if previously used)
-        # Make sure `y` remains integers, not categorical
-
         # Compute class weights
         classes = np.unique(y)
         class_weights = compute_class_weight(class_weight='balanced', classes=classes, y=y)
         class_weights = {i: w for i, w in enumerate(class_weights)}
+
+        # Shuffle data
+        X, y = shuffle(X, y, random_state=40)
 
         print(f"\nComputed Class Weights: {class_weights}")
         return X, y, class_weights
@@ -120,6 +121,10 @@ class ModelTrainer:
 
         plt.show()
 
+        # Save model
+        saveName = "eegnet_model.keras"
+        self.model.save(saveName)
+        print("\nModel saved as ", saveName)
 
     def predict(self, new_epochs):
         """ Predict labels for new epoched data. """
