@@ -3,22 +3,6 @@ from mne.io import concatenate_raws
 import numpy as np
 import pandas as pd 
 
-class DatasetLoader:
-    def __init__(self, subjects=range(1, 80), runs=[4, 8, 12], channels=None):
-        """
-        Initializes the DatasetLoader class.
-        
-        :param subjects: Range or list of subject IDs to load.
-        :param runs: List of motor imagery run IDs.
-        :param channels: Optional list of channel names to filter the data.
-        """
-        self.subjects = subjects
-        self.runs = runs
-        self.channels = channels  # optional channel filter
-        self.epochs = None        # concatenated epochs will be stored here
-        self.events = None
-        self.event_id = None
-        self.file_paths = []      # store file paths
 
 class DatasetLoader:
     def __init__(self, subjects=range(1, 80), runs=[4, 8, 12], exclude_subjects = None, channels=None):
@@ -129,15 +113,3 @@ class DatasetLoader:
         print(f"Saving epochs to {filename}...")
         self.epochs.save(filename, overwrite=True)
 
-
-
-    def save_raw_data(self, filename):
-        """
-        Saves the raw data to a file for later use.
-        
-        :param filename: Path to save the raw data.
-        """
-        if self.raw is None:
-            raise ValueError("Raw data has not been loaded. Call load_raw_data() first.")
-        print(f"Saving raw data to {filename}...")
-        self.raw.save(filename, overwrite=True)

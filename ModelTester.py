@@ -26,18 +26,18 @@ class ModelTester:
     def test(self, random_state=None):
         """Loads the saved model and evaluates it on a new validation split."""
         # Load model
-        print(f"\n📦 Loading model")
+        print(f"\n Loading model")
         
         # Prepare test set
         X_test, y_test = self.prepare_test_data(random_state=random_state)
-        print(f"🧪 Testing on {len(y_test)} samples...")
+        print(f"Testing on {len(y_test)} samples...")
 
         # Predict
         y_pred = np.argmax(self.model.predict(X_test), axis=1)
 
         # Report
         class_labels = ["T0 (Rest)", "T1 (Left-Hand)", "T2 (Right-Hand)"]
-        print("\n📊 New Classification Report:\n")
+        print("\n New Classification Report:\n")
         print(classification_report(y_test, y_pred, target_names=class_labels))
         print("Testing complete!")
 

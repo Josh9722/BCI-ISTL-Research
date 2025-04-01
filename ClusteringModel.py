@@ -78,7 +78,7 @@ class ClusteringModel:
         norm_embeddings = Lambda(lambda t: K.l2_normalize(t, axis=1), name="norm_embedding")(embeddings)
 
         self.embedding_model = Model(inputs=inputs, outputs=norm_embeddings)
-        # For metric learning, we won't use a dummy loss. We'll use a proper Triplet Loss.
+        
         return self.embedding_model
 
     def train_embedding_model(self, train_epochs=50, batch_size=64):
