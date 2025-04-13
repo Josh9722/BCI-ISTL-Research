@@ -11,14 +11,24 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt  
 from sklearn.utils import shuffle
+import os
+from CustomLogger import CustomLogger
 
 
 class ModelTrainer:
-    def __init__(self, epochs):
+    def __init__(self, epochs, modelName = "EEGNet"):
         if epochs is None:
             raise ValueError("Error: No epochs provided to ModelTrainer.")
         self.epochs = epochs
         self.model = None
+        
+        # Create log file at .\logs
+        # Create the logs directory if it doesn't exist
+        log_dir = './logs'
+        os.makedirs(log_dir, exist_ok=True)
+        log_fileName = f"{modelName}_training_log.txt"
+        self.log_file = os.path.join(log_dir, log_fileName)
+        
 
     def prepare_data(self):
         """Extracts features from epochs and reshapes data for CNN input."""
@@ -76,7 +86,7 @@ class ModelTrainer:
 
 
 
-    def train(self, epochs=80, batch_size=64, validation_split=0.3):
+    def train(self, epochs = 10, batch_size=64, validation_split=0.3):
         """ Trains the EEGNet model with improved logging and per-class accuracy. """
         X, y, class_weights = self.prepare_data()
 
@@ -88,11 +98,23 @@ class ModelTrainer:
             X, y, epochs=epochs, batch_size=batch_size,
             class_weight=class_weights, validation_split=validation_split,
             verbose=0,  # Disable default Keras output
-            callbacks=[CustomLogger()]
+            callbacks=[CustomLogger(self.log_file)]
         )
 
         print("\nTraining Complete! Evaluating Performance...")
+        evaluateModelPerformance(self, X, y, history, validation_split)
 
+        
+
+    def predict(self, new_epochs):
+        """ Predict labels for new epoched data. """
+        if self.model is None:
+            raise ValueError("Model not trained. Call train() first.")
+        
+        X_new = new_epochs.get_data()[..., np.newaxis]  # Reshape for CNN input
+        return self.model.predict(X_new)
+
+def evaluateModelPerformance(self, X, y, history, validation_split):
         # Split data for evaluation
         val_size = int(validation_split * len(y))
         X_test, y_test = X[:val_size], y[:val_size]
@@ -103,36 +125,14 @@ class ModelTrainer:
         # Print per-class accuracy and detailed report
         class_labels = ["T0 (Rest)", "T1 (Left-Hand)", "T2 (Right-Hand)"]
         print("\n📊 Classification Report:\n")
-        print(classification_report(y_test, y_pred, target_names=class_labels))
+        report = classification_report(y_test, y_pred, target_names=class_labels)
+        print(report)
 
-        # Plot Training Curves
-        plt.figure(figsize=(12, 4))
-        plt.subplot(1, 2, 1)
-        plt.plot(history.history['loss'], label="Train Loss")
-        plt.plot(history.history['val_loss'], label="Val Loss")
-        plt.legend()
-        plt.title("Loss Curve")
+        # Log the report to file
+        with open(self.log_file, 'a') as f:
+            f.write("\nClassification Report:\n")
+            f.write(report)
 
-        plt.subplot(1, 2, 2)
-        plt.plot(history.history['accuracy'], label="Train Accuracy")
-        plt.plot(history.history['val_accuracy'], label="Val Accuracy")
-        plt.legend()
-        plt.title("Accuracy Curve")
-
-        plt.show()
-
-        # Save model
-        saveName = "eegnet_model.keras"
-        self.model.save(saveName)
-        print("\nModel saved as ", saveName)
-
-    def predict(self, new_epochs):
-        """ Predict labels for new epoched data. """
-        if self.model is None:
-            raise ValueError("Model not trained. Call train() first.")
-        
-        X_new = new_epochs.get_data()[..., np.newaxis]  # Reshape for CNN input
-        return self.model.predict(X_new)
 
 
 def focal_loss(alpha=0.5, gamma=2.0):
@@ -145,12 +145,27 @@ def focal_loss(alpha=0.5, gamma=2.0):
             return K.mean(weight * cross_entropy, axis=-1)
         return loss
 
-class CustomLogger(Callback):
-    """ Custom callback for cleaner output formatting. """
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-        print(f"Epoch {epoch + 1:02d}/{self.params['epochs']} | "
-            f"Loss: {logs.get('loss', 0):.4f} | "
-            f"Acc: {logs.get('accuracy', 0):.4f} | "
-            f"Val Loss: {logs.get('val_loss', 0):.4f} | "
-            f"Val Acc: {logs.get('val_accuracy', 0):.4f}")
+# class CustomLogger(Callback):
+#     """ Custom callback for cleaner output formatting and logging to file. """
+    
+#     def __init__(self, log_file):
+#         super(CustomLogger, self).__init__()
+#         self.log_file = log_file
+#         # Optionally initialize the file, e.g. create it or write a header.
+#         with open(self.log_file, 'w') as f:
+#             f.write("Training Log\n")
+#             f.write("============\n")
+    
+#     def on_epoch_end(self, epoch, logs=None):
+#         logs = logs or {}
+#         message = (
+#             f"Epoch {epoch + 1:02d}/{self.params['epochs']} | "
+#             f"Loss: {logs.get('loss', 0):.4f} | "
+#             f"Acc: {logs.get('accuracy', 0):.4f} | "
+#             f"Val Loss: {logs.get('val_loss', 0):.4f} | "
+#             f"Val Acc: {logs.get('val_accuracy', 0):.4f}"
+#         )
+        
+#         print(message)
+#         with open(self.log_file, 'a') as f:
+#             f.write(message + '\n')

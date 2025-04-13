@@ -11,6 +11,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
 import tensorflow.keras.backend as K
+import pandas as pd
 
 class ClusteringModel:
     def __init__(self, epochs, nb_clusters=3, embedding_dim=32):
@@ -81,7 +82,7 @@ class ClusteringModel:
         
         return self.embedding_model
 
-    def train_embedding_model(self, train_epochs=50, batch_size=64):
+    def train_embedding_model(self, train_epochs=10, batch_size=64):
         """
         Trains the embedding network using TripletSemiHardLoss.
         Uses subject IDs from metadata as labels to form triplets.
@@ -148,12 +149,16 @@ class ClusteringModel:
         Analyzes the distribution of subject IDs within each cluster.
         Prints, for each cluster, the unique subject IDs represented.
         """
-        import pandas as pd
         df = pd.DataFrame({'cluster': cluster_labels, 'subject': subjects})
-        grouped = df.groupby('cluster')['subject'].unique()
+        # Group subjects by cluster and convert to a dictionary
+        grouped = df.groupby('cluster')['subject'].unique().to_dict()
+        
+        # Optional: Print the grouping
         print("\nSubjects per cluster:")
         for cluster, subj in grouped.items():
             print(f"Cluster {cluster}: Subjects {subj}")
+        
+        return grouped
 
 
 class CustomLogger(Callback):
