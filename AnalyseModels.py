@@ -139,14 +139,19 @@ class AnalyseModels:
 
         report_lines = []
 
+        report_lines.append("========= Model Report Analyis =========")
         # Compute baseline slopes for training and validation accuracy.
+
+        report_lines.append(" - Baseline Model")
         baseline_train_slope = self.compute_slope(baseline_epochs, 'acc')
         baseline_val_slope = self.compute_slope(baseline_epochs, 'val_acc')
 
-        report_lines.append("=== Learning Rate Comparison (Average Improvement per Epoch) ===")
+        report_lines.append(" - Baseline Learning Rate (Average Improvement per Epoch) ===")
         report_lines.append(f"Baseline Training Acc Slope: {baseline_train_slope:.4f} per epoch")
         report_lines.append(f"Baseline Validation Acc Slope: {baseline_val_slope:.4f} per epoch\n")
+        report_lines.append(" - End Baseline Model\n")
 
+        report_lines.append("Beginning Cluster Models")
         # For each clustered model, compare with baseline.
         for idx, cluster_data in enumerate(self.clustered_data):
             cluster_epochs = cluster_data.get('epochs', [])
@@ -196,6 +201,23 @@ class AnalyseModels:
 
         full_report = "\n".join(report_lines)
         print(full_report)
+
+         # Naming convention: baseline_{baseline_epochs}_cluster_{cluster_epochs}_{n_groups}groups.txt
+        baseline_epoch_count = len(baseline_epochs)
+        # Assuming that all cluster models are trained for the same number of epochs, take the first one.
+        if self.clustered_data and self.clustered_data[0].get('epochs', []):
+            cluster_epoch_count = len(self.clustered_data[0]['epochs'])
+        else:
+            cluster_epoch_count = "unknown"
+        n_groups = len(self.clustered_data)
+        file_name = f"baseline_{baseline_epoch_count}_cluster_{cluster_epoch_count}_{n_groups}groups.txt"
+        report_dir = "./logs"
+        os.makedirs(report_dir, exist_ok=True)
+        report_file = os.path.join(report_dir, file_name)
+        with open(report_file, 'w', encoding='utf-8') as f:
+            f.write(full_report)
+        print(f"Report saved to {report_file}")
+
 
     
     
