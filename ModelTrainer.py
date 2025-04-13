@@ -86,7 +86,7 @@ class ModelTrainer:
 
 
 
-    def train(self, epochs = 10, batch_size=64, validation_split=0.3):
+    def train(self, epochs = 60, batch_size=64, validation_split=0.3):
         """ Trains the EEGNet model with improved logging and per-class accuracy. """
         X, y, class_weights = self.prepare_data()
 
@@ -144,28 +144,3 @@ def focal_loss(alpha=0.5, gamma=2.0):
             weight = alpha * K.pow(1 - y_pred, gamma)
             return K.mean(weight * cross_entropy, axis=-1)
         return loss
-
-# class CustomLogger(Callback):
-#     """ Custom callback for cleaner output formatting and logging to file. """
-    
-#     def __init__(self, log_file):
-#         super(CustomLogger, self).__init__()
-#         self.log_file = log_file
-#         # Optionally initialize the file, e.g. create it or write a header.
-#         with open(self.log_file, 'w') as f:
-#             f.write("Training Log\n")
-#             f.write("============\n")
-    
-#     def on_epoch_end(self, epoch, logs=None):
-#         logs = logs or {}
-#         message = (
-#             f"Epoch {epoch + 1:02d}/{self.params['epochs']} | "
-#             f"Loss: {logs.get('loss', 0):.4f} | "
-#             f"Acc: {logs.get('accuracy', 0):.4f} | "
-#             f"Val Loss: {logs.get('val_loss', 0):.4f} | "
-#             f"Val Acc: {logs.get('val_accuracy', 0):.4f}"
-#         )
-        
-#         print(message)
-#         with open(self.log_file, 'a') as f:
-#             f.write(message + '\n')

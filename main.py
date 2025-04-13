@@ -17,6 +17,7 @@ from DatasetLoader import DatasetLoader
 from ModelTrainer import ModelTrainer
 from ModelTester import ModelTester
 from ClusteringModel import ClusteringModel
+from AnalyseModels import AnalyseModels
 
 # ------------- Loading Dataset -------------
 # loader = DatasetLoader(subjects=range(1, 60), runs=[4, 8, 12], channels=['Fc5.', 'C3..', 'C4..', 'Cz..'])
@@ -45,14 +46,16 @@ print("Data loaded successfully!")
 
 # ------------- Clustering Data -------------
 print("\nTraining clustering model...")
+trainEpochs = 50 
 clustering_model = ClusteringModel(epochs, nb_clusters=3, embedding_dim=32)
-clustering_model.train_embedding_model(train_epochs=10, batch_size=64)
+clustering_model.train_embedding_model(train_epochs=trainEpochs, batch_size=64)
 embeddings, subjects = clustering_model.extract_embeddings()
 cluster_labels = clustering_model.perform_clustering(embeddings)
 clustering_model.analyze_clusters_by_subject(cluster_labels, subjects)
 clustering_model.plot_clusters(embeddings, cluster_labels)
 
-clustering_model.embedding_model.save("embedding_model.keras")
+# Save the clustering model with the name of the model + the number of epochs trained
+clustering_model.embedding_model.save(f"clustering_model_{trainEpochs}epochs.keras")
 print("Clustering complete!")
 
 # ------------- Training Model -------------
@@ -93,12 +96,23 @@ for cluster_label, subject_list in clustered_subjects.items():
     clusterNumber += 1
 
 
+# ------------- Analyse Models -------------
+baseline_log = "./logs/EEGNet_training_log.txt"
+clustered_logs = [
+    "./logs/EEGNet_clustered #1_training_log.txt",
+    "./logs/EEGNet_clustered #2_training_log.txt",
+    "./logs/EEGNet_clustered #3_training_log.txt"
+]
+
+# Create an analyser instance and produce the report.
+analyser = AnalyseModels(baseline_log, clustered_logs)
+analyser.produceReport()
 
 
 # ------------- Testing Model -------------
-model = load_model("eegnet_model.keras")
-tester = ModelTester(model, epochs)
-tester.test(random_state=32)
+# model = load_model("eegnet_model.keras")
+# tester = ModelTester(model, epochs)
+# tester.test(random_state=32)
 
 
 # ------------- Saving Model ------------- 
