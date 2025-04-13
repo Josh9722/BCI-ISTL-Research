@@ -20,7 +20,6 @@ from ClusteringModel import ClusteringModel
 from AnalyseModels import AnalyseModels
 
 # ------------- Loading Dataset -------------
-# loader = DatasetLoader(subjects=range(1, 60), runs=[4, 8, 12], channels=['Fc5.', 'C3..', 'C4..', 'Cz..'])
 
 # Optionally use saved epochs. 
 if True:
@@ -33,41 +32,57 @@ else:
     loader.epochs.save("allsubjects-selectedchannels-epo.fif", overwrite=True)
     epochs = loader.epochs
 
-# Optional Visualisation
-# loader.epochs.plot()
-# plt.show()
 
 print()
 print("Data loaded successfully!")
 
 
-# ------------- PreProcessing Data -------------
-#preprocessor = DataPreprocessor()
-
 # ------------- Clustering Data -------------
 print("\nTraining clustering model...")
 trainEpochs = 50 
-clustering_model = ClusteringModel(epochs, nb_clusters=3, embedding_dim=32)
-clustering_model.train_embedding_model(train_epochs=trainEpochs, batch_size=64)
+chans = epochs.info['nchan']
+nb_clusters = 3
+print ("Number of channels: ", chans)
+
+clustering_model = ClusteringModel(epochs, nb_clusters=nb_clusters, embedding_dim=32)
+# If file exists load file instead
+modelName = f"clustering_model_{trainEpochs}epochs_{chans}chans_{nb_clusters}clusters.keras"
+if os.path.exists(modelName):
+    print("Loading existing clustering model...")
+    clustering_model.embedding_model = load_model(modelName, safe_mode = False)
+else:
+    print("Training new clustering model...")
+    clustering_model.train_embedding_model(train_epochs=trainEpochs, batch_size=64)
+    
+    # Save the clustering model with the name of the model + the number of epochs trained
+    clustering_model.embedding_model.save(modelName)
+
 embeddings, subjects = clustering_model.extract_embeddings()
 cluster_labels = clustering_model.perform_clustering(embeddings)
 clustering_model.analyze_clusters_by_subject(cluster_labels, subjects)
 clustering_model.plot_clusters(embeddings, cluster_labels)
 
-# Save the clustering model with the name of the model + the number of epochs trained
-clustering_model.embedding_model.save(f"clustering_model_{trainEpochs}epochs.keras")
+
 print("Clustering complete!")
+
+
 
 # ------------- Training Model -------------
 # Train baseline EEGNet Model
 modelName = "EEGNet"
-trainer = ModelTrainer(epochs, modelName)
-trainer.train()
+trainEpochs = 50
 
-# Save EEGNet model
-saveName = f"{modelName}_model.keras"
-trainer.model.save(saveName)
-print("\nModel saved as ", saveName)
+trainer = ModelTrainer(epochs, modelName)
+if os.path.exists(f"baseline_model_{trainEpochs}epochs.keras"):
+    print("Loading existing baseline model...")
+    trainer.model = load_model(f"baseline_model_{trainEpochs}epochs.keras", safe_mode = False)
+else:
+    trainer.train(epochs = trainEpochs)
+
+    # Save EEGNet model
+    saveName = f"baseline_model_{trainEpochs}epochs.keras"
+    trainer.model.save(saveName)
+    print("\nModel saved as ", saveName)
 
 
 # Train model for each cluster
