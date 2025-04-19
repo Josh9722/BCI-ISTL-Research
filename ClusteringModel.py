@@ -144,21 +144,81 @@ class ClusteringModel:
         plt.legend(*scatter.legend_elements(), title="Clusters")
         plt.show()
 
-    def analyze_clusters_by_subject(self, cluster_labels, subjects):
+    def analyze_clusters_by_subject(self, cluster_labels, subjects, mode="unique", threshold=0.8, verbose=True):
         """
-        Analyzes the distribution of subject IDs within each cluster.
-        Prints, for each cluster, the unique subject IDs represented.
+        Summarise how subjects are distributed across clusters and (optionally)
+        assign each subject to *one* “canonical” cluster.
+
+        Parameters
+        ----------
+        cluster_labels : array-like, shape (n_epochs,)
+            Cluster index for every epoch.
+        subjects : array-like, shape (n_epochs,)
+            Subject ID for every epoch (same length as cluster_labels).
+        mode : {"unique", "majority", "threshold"}, default="unique"
+            - "unique"    : original behaviour - a subject appears in every
+                            cluster that contains at least one of its epochs.
+            - "majority"  : assign a subject **only** to the cluster that holds
+                            the largest share of its epochs.
+            - "threshold" : assign a subject to a cluster **only if** that cluster
+                            contains at least `threshold` (e.g. 0.8 → 80%) of the
+                            subject's epochs.  A subject may end up unassigned.
+        threshold : float, optional
+            Minimum fraction of a subject's epochs that must lie in a cluster for
+            "threshold" mode.
+        verbose : bool
+            Print nice summaries when True.
+
         """
-        df = pd.DataFrame({'cluster': cluster_labels, 'subject': subjects})
-        # Group subjects by cluster and convert to a dictionary
-        grouped = df.groupby('cluster')['subject'].unique().to_dict()
-        
-        # Optional: Print the grouping
-        print("\nSubjects per cluster:")
-        for cluster, subj in grouped.items():
-            print(f"Cluster {cluster}: Subjects {subj}")
-        
-        return grouped
+        import pandas as pd
+        df = pd.DataFrame({"cluster": cluster_labels, "subject": subjects})
+        # Table of counts: rows = subjects, columns = clusters
+        counts = (
+            df.groupby(["subject", "cluster"])
+            .size()
+            .unstack(fill_value=0)
+            .astype(int)
+            .sort_index()
+        )
+
+        if verbose:
+            print("\nEpoch counts per subject & cluster:")
+            print(counts)
+
+        # ---------- assignment according to mode ----------------------------
+        grouped = {cl: [] for cl in counts.columns}  # ensure every cluster key
+
+        if mode == "unique":
+            for cl in counts.columns:
+                grouped[cl] = counts[counts[cl] > 0].index.tolist()
+
+        elif mode == "majority":
+            # pick the cluster with the max count for each subject
+            winners = counts.idxmax(axis=1)
+            for subj, cl in winners.items():
+                grouped[cl].append(subj)
+
+        elif mode == "threshold":
+            totals = counts.sum(axis=1)
+            frac = counts.div(totals, axis=0)
+            for subj in counts.index:
+                # clusters that satisfy the threshold for this subject
+                good = frac.columns[frac.loc[subj] >= threshold]
+                if len(good):
+                    # If several clusters pass, pick the one with most epochs
+                    best = counts.loc[subj, good].idxmax()
+                    grouped[best].append(subj)
+                # else: subject remains unassigned
+
+        else:
+            raise ValueError("mode must be 'unique', 'majority', or 'threshold'")
+
+        if verbose:
+            print("\nSubjects assigned to clusters ({!s} mode):".format(mode))
+            for cl, subj_list in grouped.items():
+                print(f"Cluster {cl}: {subj_list}")
+
+        return grouped, counts
 
 
 class CustomLogger(Callback):
