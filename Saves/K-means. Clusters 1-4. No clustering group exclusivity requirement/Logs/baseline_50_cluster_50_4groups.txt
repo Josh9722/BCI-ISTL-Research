@@ -1,0 +1,80 @@
+========= Model Report Analyis =========
+ - Baseline Model
+ - Baseline Learning Rate (Average Improvement per Epoch) ===
+Baseline Training Acc Slope: 0.0020 per epoch
+Baseline Validation Acc Slope: 0.0038 per epoch
+
+ - End Baseline Model
+
+Beginning Cluster Models
+=== Comparison: Cluster Model #1 vs Baseline ===
+Differences in Final Epoch Metrics (Cluster - Baseline):
+  Loss diff: -0.0021
+  Acc diff: 0.0119
+  Val Loss diff: 0.0302
+  Val Acc diff: -0.0169
+
+Differences in Learning Rate (Slope) (Cluster - Baseline):
+  Training Acc Slope diff: +0.0001 per epoch
+  Validation Acc Slope diff: -0.0002 per epoch
+
+Differences in Classification Report per Class (Cluster - Baseline):
+T0 (Rest) - Precision diff: -0.0600, Recall diff: 0.0000, F1 diff: -0.0100
+T1 (Left-Hand) - Precision diff: -0.0700, Recall diff: 0.2100, F1 diff: 0.0000
+T2 (Right-Hand) - Precision diff: 0.0300, Recall diff: -0.3600, F1 diff: -0.1300
+
+==================================================
+
+=== Comparison: Cluster Model #2 vs Baseline ===
+Differences in Final Epoch Metrics (Cluster - Baseline):
+  Loss diff: 0.0095
+  Acc diff: -0.0192
+  Val Loss diff: 0.1989
+  Val Acc diff: -0.1450
+
+Differences in Learning Rate (Slope) (Cluster - Baseline):
+  Training Acc Slope diff: -0.0004 per epoch
+  Validation Acc Slope diff: -0.0038 per epoch
+
+Differences in Classification Report per Class (Cluster - Baseline):
+T0 (Rest) - Precision diff: -0.0100, Recall diff: -0.1800, F1 diff: -0.1800
+T1 (Left-Hand) - Precision diff: -0.1200, Recall diff: 0.2400, F1 diff: -0.0400
+T2 (Right-Hand) - Precision diff: -0.0300, Recall diff: -0.3500, F1 diff: -0.1500
+
+==================================================
+
+=== Comparison: Cluster Model #3 vs Baseline ===
+Differences in Final Epoch Metrics (Cluster - Baseline):
+  Loss diff: -0.1716
+  Acc diff: 0.1033
+  Val Loss diff: 0.1493
+  Val Acc diff: -0.1341
+
+Differences in Learning Rate (Slope) (Cluster - Baseline):
+  Training Acc Slope diff: +0.0027 per epoch
+  Validation Acc Slope diff: -0.0050 per epoch
+
+Differences in Classification Report per Class (Cluster - Baseline):
+T0 (Rest) - Precision diff: 0.2500, Recall diff: -0.3600, F1 diff: -0.4400
+T1 (Left-Hand) - Precision diff: -0.0800, Recall diff: -0.1100, F1 diff: -0.1000
+T2 (Right-Hand) - Precision diff: -0.1300, Recall diff: 0.0900, F1 diff: -0.1100
+
+==================================================
+
+=== Comparison: Cluster Model #4 vs Baseline ===
+Differences in Final Epoch Metrics (Cluster - Baseline):
+  Loss diff: -0.0116
+  Acc diff: -0.0078
+  Val Loss diff: 0.0442
+  Val Acc diff: -0.0176
+
+Differences in Learning Rate (Slope) (Cluster - Baseline):
+  Training Acc Slope diff: -0.0004 per epoch
+  Validation Acc Slope diff: -0.0006 per epoch
+
+Differences in Classification Report per Class (Cluster - Baseline):
+T0 (Rest) - Precision diff: 0.0100, Recall diff: 0.0000, F1 diff: 0.0000
+T1 (Left-Hand) - Precision diff: -0.0800, Recall diff: 0.1800, F1 diff: -0.0100
+T2 (Right-Hand) - Precision diff: 0.0800, Recall diff: -0.2600, F1 diff: -0.0600
+
+==================================================

@@ -1,0 +1,63 @@
+Training Log
+============
+Epoch 01/50 | Loss: 1.0880 | Acc: 0.3937 | Val Loss: 1.0989 | Val Acc: 0.2233
+Epoch 02/50 | Loss: 1.0420 | Acc: 0.4481 | Val Loss: 1.0945 | Val Acc: 0.4984
+Epoch 03/50 | Loss: 0.9962 | Acc: 0.4888 | Val Loss: 1.0907 | Val Acc: 0.4984
+Epoch 04/50 | Loss: 0.9768 | Acc: 0.4914 | Val Loss: 1.0879 | Val Acc: 0.4984
+Epoch 05/50 | Loss: 0.9690 | Acc: 0.4996 | Val Loss: 1.0869 | Val Acc: 0.4984
+Epoch 06/50 | Loss: 0.9613 | Acc: 0.5090 | Val Loss: 1.0933 | Val Acc: 0.4984
+Epoch 07/50 | Loss: 0.9482 | Acc: 0.5159 | Val Loss: 1.0898 | Val Acc: 0.5275
+Epoch 08/50 | Loss: 0.9449 | Acc: 0.5227 | Val Loss: 1.0870 | Val Acc: 0.3560
+Epoch 09/50 | Loss: 0.9339 | Acc: 0.5454 | Val Loss: 1.0967 | Val Acc: 0.3366
+Epoch 10/50 | Loss: 0.9437 | Acc: 0.5306 | Val Loss: 1.0794 | Val Acc: 0.4563
+Epoch 11/50 | Loss: 0.9278 | Acc: 0.5313 | Val Loss: 1.0962 | Val Acc: 0.3430
+Epoch 12/50 | Loss: 0.9200 | Acc: 0.5324 | Val Loss: 1.0134 | Val Acc: 0.5825
+Epoch 13/50 | Loss: 0.9219 | Acc: 0.5367 | Val Loss: 1.0525 | Val Acc: 0.3916
+Epoch 14/50 | Loss: 0.9174 | Acc: 0.5317 | Val Loss: 1.0273 | Val Acc: 0.4628
+Epoch 15/50 | Loss: 0.9160 | Acc: 0.5483 | Val Loss: 1.3496 | Val Acc: 0.3463
+Epoch 16/50 | Loss: 0.9121 | Acc: 0.5558 | Val Loss: 1.4853 | Val Acc: 0.3333
+Epoch 17/50 | Loss: 0.9136 | Acc: 0.5371 | Val Loss: 0.9394 | Val Acc: 0.5081
+Epoch 18/50 | Loss: 0.9058 | Acc: 0.5457 | Val Loss: 1.0962 | Val Acc: 0.3657
+Epoch 19/50 | Loss: 0.8969 | Acc: 0.5421 | Val Loss: 1.2870 | Val Acc: 0.3819
+Epoch 20/50 | Loss: 0.9067 | Acc: 0.5515 | Val Loss: 0.8534 | Val Acc: 0.5858
+Epoch 21/50 | Loss: 0.9008 | Acc: 0.5652 | Val Loss: 0.9943 | Val Acc: 0.4563
+Epoch 22/50 | Loss: 0.8974 | Acc: 0.5537 | Val Loss: 1.1344 | Val Acc: 0.4757
+Epoch 23/50 | Loss: 0.8900 | Acc: 0.5566 | Val Loss: 0.9808 | Val Acc: 0.5178
+Epoch 24/50 | Loss: 0.8866 | Acc: 0.5623 | Val Loss: 0.8477 | Val Acc: 0.6472
+Epoch 25/50 | Loss: 0.8967 | Acc: 0.5533 | Val Loss: 0.8565 | Val Acc: 0.5987
+Epoch 26/50 | Loss: 0.8836 | Acc: 0.5670 | Val Loss: 0.9462 | Val Acc: 0.5178
+Epoch 27/50 | Loss: 0.8907 | Acc: 0.5666 | Val Loss: 0.8269 | Val Acc: 0.6019
+Epoch 28/50 | Loss: 0.8871 | Acc: 0.5666 | Val Loss: 0.8233 | Val Acc: 0.6505
+Epoch 29/50 | Loss: 0.8860 | Acc: 0.5771 | Val Loss: 1.6113 | Val Acc: 0.3657
+Epoch 30/50 | Loss: 0.8922 | Acc: 0.5540 | Val Loss: 0.8807 | Val Acc: 0.5793
+Epoch 31/50 | Loss: 0.8808 | Acc: 0.5688 | Val Loss: 0.8272 | Val Acc: 0.6181
+Epoch 32/50 | Loss: 0.8795 | Acc: 0.5720 | Val Loss: 0.8370 | Val Acc: 0.5825
+Epoch 33/50 | Loss: 0.8798 | Acc: 0.5764 | Val Loss: 0.8583 | Val Acc: 0.6052
+Epoch 34/50 | Loss: 0.8791 | Acc: 0.5681 | Val Loss: 1.1147 | Val Acc: 0.4984
+Epoch 35/50 | Loss: 0.8805 | Acc: 0.5688 | Val Loss: 1.0915 | Val Acc: 0.4984
+Epoch 36/50 | Loss: 0.8806 | Acc: 0.5724 | Val Loss: 0.8484 | Val Acc: 0.6149
+Epoch 37/50 | Loss: 0.8840 | Acc: 0.5677 | Val Loss: 1.2896 | Val Acc: 0.4304
+Epoch 38/50 | Loss: 0.8716 | Acc: 0.5706 | Val Loss: 0.8444 | Val Acc: 0.6149
+Epoch 39/50 | Loss: 0.8695 | Acc: 0.5756 | Val Loss: 0.8148 | Val Acc: 0.6214
+Epoch 40/50 | Loss: 0.8750 | Acc: 0.5674 | Val Loss: 1.2105 | Val Acc: 0.4693
+Epoch 41/50 | Loss: 0.8688 | Acc: 0.5648 | Val Loss: 0.8639 | Val Acc: 0.5987
+Epoch 42/50 | Loss: 0.8668 | Acc: 0.5753 | Val Loss: 0.8760 | Val Acc: 0.6181
+Epoch 43/50 | Loss: 0.8595 | Acc: 0.5688 | Val Loss: 0.8195 | Val Acc: 0.6181
+Epoch 44/50 | Loss: 0.8668 | Acc: 0.5710 | Val Loss: 0.8330 | Val Acc: 0.6472
+Epoch 45/50 | Loss: 0.8635 | Acc: 0.5861 | Val Loss: 0.9469 | Val Acc: 0.5534
+Epoch 46/50 | Loss: 0.8597 | Acc: 0.5756 | Val Loss: 0.8383 | Val Acc: 0.6149
+Epoch 47/50 | Loss: 0.8612 | Acc: 0.5764 | Val Loss: 0.8199 | Val Acc: 0.6343
+Epoch 48/50 | Loss: 0.8582 | Acc: 0.5911 | Val Loss: 0.8528 | Val Acc: 0.5890
+Epoch 49/50 | Loss: 0.8590 | Acc: 0.5695 | Val Loss: 0.9717 | Val Acc: 0.5405
+Epoch 50/50 | Loss: 0.8650 | Acc: 0.5674 | Val Loss: 0.9640 | Val Acc: 0.5178
+
+Classification Report:
+                 precision    recall  f1-score   support
+
+      T0 (Rest)       0.75      0.30      0.43       675
+ T1 (Left-Hand)       0.33      0.87      0.48       325
+T2 (Right-Hand)       0.54      0.34      0.42       323
+
+       accuracy                           0.45      1323
+      macro avg       0.54      0.51      0.44      1323
+   weighted avg       0.59      0.45      0.44      1323
