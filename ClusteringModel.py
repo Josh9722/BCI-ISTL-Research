@@ -144,7 +144,7 @@ class ClusteringModel:
         plt.legend(*scatter.legend_elements(), title="Clusters")
         plt.show()
 
-    def analyze_clusters_by_subject(self, cluster_labels, subjects, mode="unique", threshold=0.8, verbose=True):
+    def analyze_clusters_by_subject(self, cluster_labels, subjects, mode="unique", threshold=0.8, logPath="./logs/", verbose=True):
         """
         Summarise how subjects are distributed across clusters and (optionally)
         assign each subject to *one* “canonical” cluster.
@@ -180,6 +180,9 @@ class ClusteringModel:
             .astype(int)
             .sort_index()
         )
+
+        with open(logPath, "w") as f:
+            counts.to_string(buf=f)
 
         if verbose:
             print("\nEpoch counts per subject & cluster:")

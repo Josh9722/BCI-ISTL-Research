@@ -107,7 +107,7 @@ for clustering_model in clustering_models:
     embeddings, subjects = clustering_model.extract_embeddings()
     cluster_labels = clustering_model.perform_clustering(embeddings)
 
-    clustered_subjects = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects)
+    clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
     clusterNumber = 1
 
     # Iterate over each cluster in the dictionary

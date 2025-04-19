@@ -54,7 +54,7 @@ class ModelTrainer:
 
 
 
-    def build_model(self, nb_classes, Chans, Samples, dropoutRate=0.5, kernLength=64, F1=8, D=2, F2=16, norm_rate=0.25):
+    def build_model(self, nb_classes, Chans, Samples, dropoutRate=0.25, kernLength=64, F1=8, D=2, F2=16, norm_rate=0.25):
         """ Constructs the EEGNet model. """
         inputs = Input(shape=(Chans, Samples, 1))
 
