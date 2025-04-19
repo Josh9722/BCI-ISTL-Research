@@ -11,6 +11,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt  
 from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 import os
 from CustomLogger import CustomLogger
 
@@ -86,23 +87,27 @@ class ModelTrainer:
 
 
 
-    def train(self, epochs = 60, batch_size=64, validation_split=0.3):
+    def train(self, epochs = 50, batch_size=64, validation_split=0.3):
         """ Trains the EEGNet model with improved logging and per-class accuracy. """
         X, y, class_weights = self.prepare_data()
+
+         # Split into train and test sets (independent test set)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=validation_split, random_state=42, stratify=y)
 
         # Build EEGNet model
         self.build_model(nb_classes=3, Chans=X.shape[1], Samples=X.shape[2])
 
         print("\nStarting Training ")
         history = self.model.fit(
-            X, y, epochs=epochs, batch_size=batch_size,
-            class_weight=class_weights, validation_split=validation_split,
-            verbose=0,  # Disable default Keras output
-            callbacks=[CustomLogger(self.log_file)]
-        )
+        X_train, y_train, epochs=epochs, batch_size=batch_size,
+        class_weight=class_weights, verbose=0,
+        validation_split=0.1,  # Optional: internal val split from training set
+        callbacks=[CustomLogger(self.log_file)]
+    )
 
+        
         print("\nTraining Complete! Evaluating Performance...")
-        evaluateModelPerformance(self, X, y, history, validation_split)
+        evaluateModelPerformance(self, X_test, y_test, history)
 
         
 
@@ -114,17 +119,11 @@ class ModelTrainer:
         X_new = new_epochs.get_data()[..., np.newaxis]  # Reshape for CNN input
         return self.model.predict(X_new)
 
-def evaluateModelPerformance(self, X, y, history, validation_split):
-        # Split data for evaluation
-        val_size = int(validation_split * len(y))
-        X_test, y_test = X[:val_size], y[:val_size]
-
-        # Get predictions
+def evaluateModelPerformance(self, X_test, y_test, history):
         y_pred = np.argmax(self.model.predict(X_test), axis=1)
 
-        # Print per-class accuracy and detailed report
         class_labels = ["T0 (Rest)", "T1 (Left-Hand)", "T2 (Right-Hand)"]
-        print("\n📊 Classification Report:\n")
+        print("\nClassification Report:\n")
         report = classification_report(y_test, y_pred, target_names=class_labels)
         print(report)
 

@@ -14,7 +14,7 @@ import tensorflow.keras.backend as K
 import pandas as pd
 
 class ClusteringModel:
-    def __init__(self, epochs, nb_clusters=3, embedding_dim=32):
+    def __init__(self, epochs = 1, nb_clusters=3, embedding_dim=32):
         """
         Initializes the ClusteringModel with epochs (which have metadata for subjects),
         a specified number of clusters, and the desired embedding dimension.
