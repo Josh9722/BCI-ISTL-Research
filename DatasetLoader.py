@@ -46,6 +46,16 @@ class DatasetLoader:
             for path in paths:
                 raw = mne.io.read_raw_edf(path, preload=True, stim_channel='auto', verbose=False)
 
+                  # ▲ 1) Band‑pass 8‑30 Hz (motor‑imagery µ/β band)
+                raw.filter(l_freq=8., h_freq=30., picks='eeg',
+                        fir_design='firwin', verbose=False)
+
+                # ▲ 2) Notch at 50 Hz (change to 60. if you are in a 60‑Hz region)
+                raw.notch_filter(freqs=[50], picks='eeg', verbose=False)
+
+                # Apply average referencing
+                raw.set_eeg_reference('average', verbose=False)
+                
                 # Remove boundary annotations (if any)
                 boundary_idxs = [i for i, desc in enumerate(raw.annotations.description)
                                 if 'boundary' in desc.lower()]
