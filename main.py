@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import mne
 from mne.io import concatenate_raws
 from tensorflow.keras.models import load_model
-from ModelTester import ModelTester  # if it's in a separate file
 import os
 
 
@@ -15,7 +14,6 @@ import os
 from DatasetLoader import DatasetLoader
 # from DataPreprocessor import DataPreprocessor
 from ModelTrainer import ModelTrainer
-from ModelTester import ModelTester
 from ClusteringModel import ClusteringModel
 from AnalyseModels import AnalyseModels
 
@@ -61,7 +59,7 @@ def split_epochs_by_subject(epo, test_fraction=0.2, seed=40):
 # ------------- Loading Dataset -------------
 
 # Optionally use saved epochs. 
-if True:
+if False:
     print("🔁 Loading preprocessed epochs from disk...")
     epochs = mne.read_epochs("allsubjects-allchannels-epo.fif", preload=True)
 else:
@@ -81,15 +79,17 @@ print("Data loaded successfully!")
 clustering_models = []
 
 print("\nTraining clustering model...")
-model1 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 3)
-model2 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 4)
-model3 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 5)
-model4 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 6)
+model1 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 2)
+model2 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 3)
+model3 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 4)
+model4 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 5)
+model5 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 6)
 
 clustering_models.append(model1)
 clustering_models.append(model2)
 clustering_models.append(model3)
 clustering_models.append(model4)
+clustering_models.append(model5)
 
 print("Clustering complete!")
 
@@ -98,7 +98,7 @@ print("Clustering complete!")
 # ------------- Training Model -------------
 # Train baseline EEGNet Model
 modelName = "EEGNet_Baseline"
-trainEpochs = 100
+trainEpochs = 2
 saveName = f"{modelName}_{trainEpochs}epochs.keras"
 
 trainer = ModelTrainer(epochs, modelName)
@@ -126,7 +126,7 @@ for clustering_model in clustering_models:
     clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
     clusterNumber = 1
 
-    trainEpochs = 100
+    trainEpochs = 2
     # Iterate over each cluster in the dictionary
     for cluster_label, subject_list in clustered_subjects.items():
         modelName = f"Cluster Model #{modelIndex} Cluster Group #{clusterNumber}"
@@ -152,12 +152,23 @@ for clustering_model in clustering_models:
 # ------------- Analyse Models -------------
 baseline_log = "./logs/EEGNet_training_log.txt"
 
-# 3 Clusters
+
+# 2 Clusters
 clustered_logs = [
 
     "./logs/Cluster Model #1 Cluster Group #1_training_log.txt",
     "./logs/Cluster Model #1 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #1 Cluster Group #3_training_log.txt",
+]
+analyser = AnalyseModels(baseline_log, clustered_logs)
+analyser.produceReport()
+
+
+# 3 Clusters
+clustered_logs = [
+
+    "./logs/Cluster Model #2 Cluster Group #1_training_log.txt",
+    "./logs/Cluster Model #2 Cluster Group #2_training_log.txt",
+    "./logs/Cluster Model #2 Cluster Group #3_training_log.txt",
 ]
 analyser = AnalyseModels(baseline_log, clustered_logs)
 analyser.produceReport()
@@ -165,10 +176,10 @@ analyser.produceReport()
 
 # 4 Clusters
 clustered_logs = [
-    "./logs/Cluster Model #2 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #2 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #2 Cluster Group #3_training_log.txt",
-    "./logs/Cluster Model #2 Cluster Group #4_training_log.txt",
+    "./logs/Cluster Model #3 Cluster Group #1_training_log.txt",
+    "./logs/Cluster Model #3 Cluster Group #2_training_log.txt",
+    "./logs/Cluster Model #3 Cluster Group #3_training_log.txt",
+    "./logs/Cluster Model #3 Cluster Group #4_training_log.txt",
 ]
 analyser = AnalyseModels(baseline_log, clustered_logs)
 analyser.produceReport()
@@ -176,11 +187,11 @@ analyser.produceReport()
 
 # 5 Clusters
 clustered_logs = [
-    "./logs/Cluster Model #3 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #3 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #3 Cluster Group #3_training_log.txt",
-    "./logs/Cluster Model #3 Cluster Group #4_training_log.txt",
-    "./logs/Cluster Model #3 Cluster Group #5_training_log.txt",
+    "./logs/Cluster Model #4 Cluster Group #1_training_log.txt",
+    "./logs/Cluster Model #4 Cluster Group #2_training_log.txt",
+    "./logs/Cluster Model #4 Cluster Group #3_training_log.txt",
+    "./logs/Cluster Model #4 Cluster Group #4_training_log.txt",
+    "./logs/Cluster Model #4 Cluster Group #5_training_log.txt",
 ]
 analyser = AnalyseModels(baseline_log, clustered_logs)
 analyser.produceReport()
@@ -188,12 +199,12 @@ analyser.produceReport()
 
 # 6 Clusters
 clustered_logs = [
-    "./logs/Cluster Model #4 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #3_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #4_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #5_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #6_training_log.txt",
+    "./logs/Cluster Model #5 Cluster Group #1_training_log.txt",
+    "./logs/Cluster Model #5 Cluster Group #2_training_log.txt",
+    "./logs/Cluster Model #5 Cluster Group #3_training_log.txt",
+    "./logs/Cluster Model #5 Cluster Group #4_training_log.txt",
+    "./logs/Cluster Model #5 Cluster Group #5_training_log.txt",
+    "./logs/Cluster Model #5 Cluster Group #6_training_log.txt",
 ]
 analyser = AnalyseModels(baseline_log, clustered_logs)
 analyser.produceReport()
