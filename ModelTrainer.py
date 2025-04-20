@@ -11,18 +11,31 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt  
 from sklearn.utils import shuffle
-from sklearn.model_selection import train_test_split
 import os
 from CustomLogger import CustomLogger
 
 
 class ModelTrainer:
+
+    # ---------- helper -------------
+    def _extract_xy(self, epo):
+        X = epo.get_data()[..., np.newaxis]
+        y = epo.events[:, 2] - 1            # {1,2,3} -> {0,1,2}
+        # shuffle & class‑weights
+        X, y = shuffle(X, y, random_state=40)
+        cw_vals = compute_class_weight('balanced', classes=np.unique(y), y=y)
+        class_weights = {i: w for i, w in enumerate(cw_vals)}
+        return X, y, class_weights
+
+
     def __init__(self, epochs, modelName = "EEGNet"):
         if epochs is None:
             raise ValueError("Error: No epochs provided to ModelTrainer.")
         self.epochs = epochs
         self.model = None
-        
+        self.train_epochs = None
+        self.test_epochs = None
+        self.modelName = modelName
         # Create log file at .\logs
         # Create the logs directory if it doesn't exist
         log_dir = './logs'
@@ -87,25 +100,28 @@ class ModelTrainer:
 
 
 
-    def train(self, epochs = 50, batch_size=64, validation_split=0.3):
-        """ Trains the EEGNet model with improved logging and per-class accuracy. """
-        X, y, class_weights = self.prepare_data()
+    def train(self, train_epochs, test_epochs,
+              epochs=50, batch_size=64, val_split=0.1):
+        self.train_epochs = train_epochs
+        self.test_epochs = test_epochs
 
-         # Split into train and test sets (independent test set)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=validation_split, random_state=42, stratify=y)
+        X_train, y_train, class_weights = self._extract_xy(train_epochs)
+        X_test,  y_test,  _            = self._extract_xy(test_epochs)
 
-        # Build EEGNet model
-        self.build_model(nb_classes=3, Chans=X.shape[1], Samples=X.shape[2])
+        # build model once
+        self.build_model(nb_classes=3, Chans=X_train.shape[1], Samples=X_train.shape[2])
 
-        print("\nStarting Training ")
+        print("\nStarting Training")
         history = self.model.fit(
-        X_train, y_train, epochs=epochs, batch_size=batch_size,
-        class_weight=class_weights, verbose=0,
-        validation_split=0.1,  # Optional: internal val split from training set
-        callbacks=[CustomLogger(self.log_file)]
-    )
+            X_train, y_train,
+            epochs=epochs,
+            batch_size=batch_size,
+            class_weight=class_weights,
+            validation_split=val_split,   # internal from TRAIN only
+            verbose=0,
+            callbacks=[CustomLogger(self.log_file)]
+        )
 
-        
         print("\nTraining Complete! Evaluating Performance...")
         evaluateModelPerformance(self, X_test, y_test, history)
 
@@ -132,14 +148,3 @@ def evaluateModelPerformance(self, X_test, y_test, history):
             f.write("\nClassification Report:\n")
             f.write(report)
 
-
-
-def focal_loss(alpha=0.5, gamma=2.0):
-        """Custom Focal Loss implementation to replace TensorFlow Addons."""
-        def loss(y_true, y_pred):
-            y_true = K.cast(y_true, tf.float32)
-            y_pred = K.clip(y_pred, 1e-7, 1.0 - 1e-7)
-            cross_entropy = -y_true * K.log(y_pred)
-            weight = alpha * K.pow(1 - y_pred, gamma)
-            return K.mean(weight * cross_entropy, axis=-1)
-        return loss
