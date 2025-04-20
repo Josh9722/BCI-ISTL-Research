@@ -46,24 +46,39 @@ class ModelTrainer:
         self.log_file = os.path.join(log_dir, log_fileName)
         
 
-    def prepare_data(self):
-        """Extracts features from epochs and reshapes data for CNN input."""
-        X = self.epochs.get_data()  # shape: (n_samples, n_channels, n_times)
-        X = X[..., np.newaxis]  # Reshape to (n_samples, n_channels, n_times, 1) for CNN
-        y = self.epochs.events[:, 2]  # Labels from event annotations
-        
-        # Convert labels from {1, 2, 3} → {0, 1, 2} for TensorFlow compatibility
-        y = y - 1  
+    def prepare_data(self, epo=None, shuffle_data=True):
+        """
+        Extract X / y and balanced class‑weights from an MNE Epochs object.
 
-        # Compute class weights
+        Parameters
+        ----------
+        epo : mne.Epochs or None
+            Source of data.  If None, falls back to self.epochs.
+        shuffle_data : bool
+            Whether to shuffle X and y together (keeps default behaviour).
+
+        Returns
+        -------
+        X : np.ndarray  (n_samples, n_chans, n_times, 1)
+        y : np.ndarray  (n_samples,)
+        class_weights : dict  {class_id : weight}
+        """
+        epo = epo if epo is not None else self.epochs
+
+        # ----- features & labels ---------------------------------------------
+        X = epo.get_data()[..., np.newaxis]       # add channel dim for CNN
+        y = epo.events[:, 2] - 1                  # {1,2,3} → {0,1,2}
+
+        # ----- balanced class‑weights ----------------------------------------
         classes = np.unique(y)
-        class_weights = compute_class_weight(class_weight='balanced', classes=classes, y=y)
-        class_weights = {i: w for i, w in enumerate(class_weights)}
+        weights = compute_class_weight('balanced', classes=classes, y=y)
+        class_weights = {int(c): w for c, w in zip(classes, weights)}
 
-        # Shuffle data
-        X, y = shuffle(X, y, random_state=40)
+        # ----- optional shuffle ----------------------------------------------
+        if shuffle_data:
+            X, y = shuffle(X, y, random_state=40)
 
-        print(f"\nComputed Class Weights: {class_weights}")
+        print(f"\nComputed class weights (len={len(y)}): {class_weights}")
         return X, y, class_weights
 
 
@@ -98,16 +113,18 @@ class ModelTrainer:
         self.model = Model(inputs=inputs, outputs=outputs)
 
         # Compile Model
-        self.model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 
 
     def train(self, train_epo, test_epo,
           num_epochs=50, batch_size=64, val_split=0.1):
 
-        X_train, y_train, class_weights = self.prepare_data(train_epo)
-        X_test,  y_test,  _             = self.prepare_data(test_epo)
+        X_train, y_train, class_weights = self._extract_xy(train_epo)
+        X_test,  y_test,  _             = self._extract_xy(test_epo)
 
+        y_train = to_categorical(y_train, num_classes=3)
+        y_test  = to_categorical(y_test,  num_classes=3)
         # build model
         self.build_model(nb_classes=3,
                         Chans=X_train.shape[1],
@@ -116,7 +133,7 @@ class ModelTrainer:
         # re‑compile with macro‑F1 so callbacks have a target
         self.model.compile(
             optimizer='adam',
-            loss='sparse_categorical_crossentropy',
+            loss='categorical_crossentropy',
             metrics=['accuracy',
                     tfa.metrics.F1Score(num_classes=3,
                                         average='macro',
@@ -155,16 +172,22 @@ class ModelTrainer:
         X_new = new_epochs.get_data()[..., np.newaxis]  # Reshape for CNN input
         return self.model.predict(X_new)
 
-def evaluateModelPerformance(self, X_test, y_test, history):
-        y_pred = np.argmax(self.model.predict(X_test), axis=1)
+def evaluateModelPerformance(self, X_test, y_test_onehot, history):
+    """
+    y_test_onehot : shape (n_samples, 3)  -- one‑hot labels
+    """
+    # model predictions → class indices
+    y_pred = np.argmax(self.model.predict(X_test), axis=1)
 
-        class_labels = ["T0 (Rest)", "T1 (Left-Hand)", "T2 (Right-Hand)"]
-        print("\nClassification Report:\n")
-        report = classification_report(y_test, y_pred, target_names=class_labels)
-        print(report)
+    # ground‑truth → class indices
+    y_true = np.argmax(y_test_onehot, axis=1)
 
-        # Log the report to file
-        with open(self.log_file, 'a') as f:
-            f.write("\nClassification Report:\n")
-            f.write(report)
+    class_labels = ["T0 (Rest)", "T1 (Left‑Hand)", "T2 (Right‑Hand)"]
+    print("\nClassification Report:\n")
+    report = classification_report(y_true, y_pred, target_names=class_labels)
+    print(report)
+
+    with open(self.log_file, "a", encoding="utf-8") as f:
+        f.write("\nClassification Report:\n")
+        f.write(report)
 

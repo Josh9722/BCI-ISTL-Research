@@ -54,12 +54,12 @@ def split_epochs_by_subject(epo, test_fraction=0.2, seed=40):
     mask_test  = epo.metadata['subject'].isin(test_subjects)
     mask_train = ~mask_test
 
-    return epo[mask_train], epo[mask_test], test_subjects
+    return epo[mask_train], epo[mask_test]
 
 # ------------- Loading Dataset -------------
 
 # Optionally use saved epochs. 
-if False:
+if True:
     print("🔁 Loading preprocessed epochs from disk...")
     epochs = mne.read_epochs("allsubjects-allchannels-epo.fif", preload=True)
 else:
@@ -107,7 +107,7 @@ if os.path.exists(saveName):
     trainer.model = load_model(saveName, safe_mode = False)
 else:
     train_epochs, test_epochs = split_epochs_by_subject(epochs, test_fraction=0.2)
-    trainer.train(train_epochs, test_epochs, epochs=trainEpochs)
+    trainer.train(train_epochs, test_epochs, num_epochs=trainEpochs)
 
     # Save EEGNet model
     trainer.model.save(saveName)
@@ -144,7 +144,7 @@ for clustering_model in clustering_models:
         # Train the model using the narrowed epochs
         trainer = ModelTrainer(narrowed_epochs, modelName)
         train_epochs, test_epochs = split_epochs_by_subject(narrowed_epochs, test_fraction=0.2)
-        trainer.train(train_epochs, test_epochs, epochs=trainEpochs) 
+        trainer.train(train_epochs, test_epochs, num_epochs=trainEpochs)
         trainer.model.save(f"{modelName}.keras")
         clusterNumber += 1
 
@@ -155,7 +155,6 @@ baseline_log = "./logs/EEGNet_training_log.txt"
 
 # 2 Clusters
 clustered_logs = [
-
     "./logs/Cluster Model #1 Cluster Group #1_training_log.txt",
     "./logs/Cluster Model #1 Cluster Group #2_training_log.txt",
 ]
