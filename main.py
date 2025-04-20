@@ -79,11 +79,11 @@ print("Data loaded successfully!")
 clustering_models = []
 
 print("\nTraining clustering model...")
-model1 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 2)
-model2 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 3)
-model3 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 4)
-model4 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 5)
-model5 = trainClusteringModel(epochs=epochs, trainEpochs = 2, chans = epochs.info['nchan'], nb_clusters = 6)
+model1 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 2)
+model2 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 3)
+model3 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 4)
+model4 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 5)
+model5 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 6)
 
 clustering_models.append(model1)
 clustering_models.append(model2)
@@ -98,7 +98,7 @@ print("Clustering complete!")
 # ------------- Training Model -------------
 # Train baseline EEGNet Model
 modelName = "EEGNet_Baseline"
-trainEpochs = 2
+trainEpochs = 100
 saveName = f"{modelName}_{trainEpochs}epochs.keras"
 
 trainer = ModelTrainer(epochs, modelName)
@@ -126,7 +126,7 @@ for clustering_model in clustering_models:
     clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
     clusterNumber = 1
 
-    trainEpochs = 2
+    trainEpochs = 100
     # Iterate over each cluster in the dictionary
     for cluster_label, subject_list in clustered_subjects.items():
         modelName = f"Cluster Model #{modelIndex} Cluster Group #{clusterNumber}"
@@ -136,6 +136,10 @@ for clustering_model in clustering_models:
 
         # Filter epochs using the boolean mask
         narrowed_epochs = epochs[mask]
+
+        if len(narrowed_epochs) <= 2:
+            print(f"Warning: No epochs found for cluster {cluster_label} (#{clusterNumber}).")
+            continue
 
         # (Optional) Print some info to verify the selection
         print(f"Original number of epochs: {len(epochs)}")
