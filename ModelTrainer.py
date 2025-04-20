@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 import os
 from CustomLogger import CustomLogger
+import tensorflow_addons as tfa
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 
 class ModelTrainer:
@@ -100,26 +102,44 @@ class ModelTrainer:
 
 
 
-    def train(self, train_epochs, test_epochs,
-              epochs=50, batch_size=64, val_split=0.1):
-        self.train_epochs = train_epochs
-        self.test_epochs = test_epochs
+    def train(self, train_epo, test_epo,
+          num_epochs=50, batch_size=64, val_split=0.1):
 
-        X_train, y_train, class_weights = self._extract_xy(train_epochs)
-        X_test,  y_test,  _            = self._extract_xy(test_epochs)
+        X_train, y_train, class_weights = self.prepare_data(train_epo)
+        X_test,  y_test,  _             = self.prepare_data(test_epo)
 
-        # build model once
-        self.build_model(nb_classes=3, Chans=X_train.shape[1], Samples=X_train.shape[2])
+        # build model
+        self.build_model(nb_classes=3,
+                        Chans=X_train.shape[1],
+                        Samples=X_train.shape[2])
+
+        # re‑compile with macro‑F1 so callbacks have a target
+        self.model.compile(
+            optimizer='adam',
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy',
+                    tfa.metrics.F1Score(num_classes=3,
+                                        average='macro',
+                                        name='macroF1')]
+        )
+
+        cbs = [
+            EarlyStopping(monitor='val_macroF1', patience=15,
+                        mode='max', restore_best_weights=True),
+            ReduceLROnPlateau(monitor='val_macroF1', factor=0.5,
+                            patience=7, mode='max', min_lr=1e-5),
+            CustomLogger(self.log_file)
+        ]
 
         print("\nStarting Training")
         history = self.model.fit(
             X_train, y_train,
-            epochs=epochs,
+            epochs=num_epochs,
             batch_size=batch_size,
             class_weight=class_weights,
-            validation_split=val_split,   # internal from TRAIN only
-            verbose=0,
-            callbacks=[CustomLogger(self.log_file)]
+            validation_split=val_split,
+            callbacks=cbs,
+            verbose=0
         )
 
         print("\nTraining Complete! Evaluating Performance...")
