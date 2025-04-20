@@ -41,7 +41,22 @@ def trainClusteringModel(epochs, trainEpochs = 1, chans = 64, nb_clusters = 3):
     # clustering_model.plot_clusters(embeddings, cluster_labels) # Optionaly visually inspect the clusters
     return clustering_model
 
+def split_epochs_by_subject(epo, test_fraction=0.2, seed=40):
+    """
+    Randomly hold out ~test_fraction of subjects (default 20 %)  
+    Returns: train_epochs, test_epochs, test_subject_ids
+    """
+    subj_ids = np.array(sorted(epo.metadata['subject'].unique()))
+    rng = np.random.default_rng(seed)
+    rng.shuffle(subj_ids)
 
+    k = max(1, int(len(subj_ids) * test_fraction))   # at least one subject
+    test_subjects = subj_ids[:k]
+
+    mask_test  = epo.metadata['subject'].isin(test_subjects)
+    mask_train = ~mask_test
+
+    return epo[mask_train], epo[mask_test], test_subjects
 
 # ------------- Loading Dataset -------------
 
@@ -82,18 +97,19 @@ print("Clustering complete!")
 
 # ------------- Training Model -------------
 # Train baseline EEGNet Model
-modelName = "EEGNet"
-trainEpochs = 50
+modelName = "EEGNet_Baseline"
+trainEpochs = 100
+saveName = f"{modelName}_{trainEpochs}epochs.keras"
 
 trainer = ModelTrainer(epochs, modelName)
-if os.path.exists(f"baseline_model_{trainEpochs}epochs.keras"):
+if os.path.exists(saveName):
     print("Loading existing baseline model...")
-    trainer.model = load_model(f"baseline_model_{trainEpochs}epochs.keras", safe_mode = False)
+    trainer.model = load_model(saveName, safe_mode = False)
 else:
-    trainer.train(epochs = trainEpochs)
+    train_epochs, test_epochs = split_epochs_by_subject(epochs, test_fraction=0.2)
+    trainer.train(train_epochs, test_epochs, epochs=trainEpochs)
 
     # Save EEGNet model
-    saveName = f"baseline_model_{trainEpochs}epochs.keras"
     trainer.model.save(saveName)
     print("\nModel saved as ", saveName)
 
@@ -110,6 +126,7 @@ for clustering_model in clustering_models:
     clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
     clusterNumber = 1
 
+    trainEpochs = 100
     # Iterate over each cluster in the dictionary
     for cluster_label, subject_list in clustered_subjects.items():
         modelName = f"Cluster Model #{modelIndex} Cluster Group #{clusterNumber}"
@@ -126,7 +143,8 @@ for clustering_model in clustering_models:
         
         # Train the model using the narrowed epochs
         trainer = ModelTrainer(narrowed_epochs, modelName)
-        trainer.train() 
+        train_epochs, test_epochs = split_epochs_by_subject(narrowed_epochs, test_fraction=0.2)
+        trainer.train(train_epochs, test_epochs, epochs=trainEpochs) 
         trainer.model.save(f"{modelName}.keras")
         clusterNumber += 1
 
