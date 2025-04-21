@@ -27,7 +27,6 @@ class CustomLogger(Callback):
             f"Val Acc: {logs.get('val_accuracy', 0):.4f} | "
             f"Time: {t:5.2f}s"
         )
-
         print(msg)
         with open(self.log_file, "a") as f:
             f.write(msg + "\n")

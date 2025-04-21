@@ -25,6 +25,55 @@ class DatasetLoader:
         self.event_id = None
         self.file_paths = []      # store file paths
 
+    
+    def balance_T0_T1_epochs(self, epochs, t0_label='T0', t1_label='T1', random_state=42):
+        """
+        Return a new Epochs where the number of T0 events equals the number of T1 events
+        by down‑sampling the T0 class. All other event types remain unchanged.
+
+        Parameters
+        ----------
+        epochs : mne.Epochs
+            Input epochs containing at least the event_id keys t0_label and t1_label.
+        t0_label : str
+            The key in epochs.event_id corresponding to the “Rest” class.
+        t1_label : str
+            The key in epochs.event_id corresponding to the “Left‑Hand” class.
+        random_state : int
+            Seed for reproducible down‑sampling.
+
+        Returns
+        -------
+        mne.Epochs
+            A new Epochs object with len(T0) == len(T1).
+        """
+        # 1) get the numeric event codes
+        ev_map = epochs.event_id
+        t0_code = ev_map[t0_label]
+        t1_code = ev_map[t1_label]
+
+        # 2) find all indices of T0 and T1 in the concatenated events array
+        ev_codes = epochs.events[:, 2]
+        idx_t0 = np.where(ev_codes == t0_code)[0]
+        idx_t1 = np.where(ev_codes == t1_code)[0]
+
+        # 3) down‑sample T0 to match T1 count
+        n_t1 = len(idx_t1)
+        rng = np.random.default_rng(random_state)
+        if len(idx_t0) > n_t1:
+            keep_t0 = rng.choice(idx_t0, size=n_t1, replace=False)
+        else:
+            keep_t0 = idx_t0
+
+        # 4) keep all T1, the sampled T0, and any other classes unchanged
+        idx_other = np.where((ev_codes != t0_code) & (ev_codes != t1_code))[0]
+        keep_idx = np.concatenate((keep_t0, idx_t1, idx_other))
+        keep_idx = np.sort(keep_idx)
+
+        # 5) return a new Epochs instance with only those trials
+        return epochs[keep_idx]
+    
+
     def load_raw_data(self, trim=False):
         """
         Loads the EEG data for each subject and each run, extracts epochs from each file,
@@ -93,11 +142,30 @@ class DatasetLoader:
         print("Epochs for all runs and subjects have been concatenated.")
         print(f"Total number of epochs: {len(self.epochs)}")
 
+        self.epochs = self.balance_T0_T1_epochs(self.epochs, t0_label='T0', t1_label='T1')
+        print(f"Balanced T0/T1: now {len(self.epochs)} total epochs")
+
         # If channels are provided, filter the epochs to include only those channels.
         if self.channels is not None:
             print(f"Filtering concatenated epochs to include channels: {self.channels}")
             self.epochs.pick_channels(self.channels)
             print("Channel filtering complete.")
+
+        # ─── Per‑subject z‑score normalization ──────────────────────────────
+        print("Applying per‑subject channel‑wise z‑score normalization …")
+        data = self.epochs.get_data()  # shape (n_epochs, n_chans, n_times)
+        subs = self.epochs.metadata['subject'].values
+        for subject in np.unique(subs):
+            idx = np.where(subs == subject)[0]
+            subj_epochs = data[idx]  # (n_subj_epochs, n_chans, n_times)
+            # compute mean/std per channel over time & epochs
+            mean = subj_epochs.mean(axis=(0, 2), keepdims=True)
+            std  = subj_epochs.std (axis=(0, 2), keepdims=True)
+            data[idx] = (subj_epochs - mean) / (std + 1e-10)
+        # write back into the Epochs object
+        self.epochs._data = data
+        print("  ✓ normalization complete.")
+        # ────────────────────────────────────────────────────────────────────────
 
     def filter_by_channels(self, channel_names):
         """
@@ -122,4 +190,5 @@ class DatasetLoader:
             raise ValueError("Epochs have not been loaded. Call load_raw_data() first.")
         print(f"Saving epochs to {filename}...")
         self.epochs.save(filename, overwrite=True)
+
 

@@ -18,7 +18,28 @@ from ClusteringModel import ClusteringModel
 from AnalyseModels import AnalyseModels
 
 
+
 # ------------- Helper Functions -------------
+
+# The original fundction that withholds the complete subject(s)
+def split_epochs_by_subject(epo, test_fraction=0.2, seed=40):
+    """
+    Randomly hold out ~test_fraction of subjects (default 20 %)  
+    Returns: train_epochs, test_epochs, test_subject_ids
+    """
+    subj_ids = np.array(sorted(epo.metadata['subject'].unique()))
+    rng = np.random.default_rng(seed)
+    rng.shuffle(subj_ids)
+
+    k = max(1, int(len(subj_ids) * test_fraction))   # at least one subject
+    test_subjects = subj_ids[:k]
+
+    mask_test  = epo.metadata['subject'].isin(test_subjects)
+    mask_train = ~mask_test
+
+    return epo[mask_train], epo[mask_test]
+
+
 def trainClusteringModel(epochs, trainEpochs = 1, chans = 64, nb_clusters = 3):
     
     clustering_model = ClusteringModel(epochs = epochs, nb_clusters=nb_clusters, embedding_dim=32)
@@ -39,36 +60,26 @@ def trainClusteringModel(epochs, trainEpochs = 1, chans = 64, nb_clusters = 3):
     # clustering_model.plot_clusters(embeddings, cluster_labels) # Optionaly visually inspect the clusters
     return clustering_model
 
-def split_epochs_by_subject(epo, test_fraction=0.2, seed=40):
-    """
-    Randomly hold out ~test_fraction of subjects (default 20 %)  
-    Returns: train_epochs, test_epochs, test_subject_ids
-    """
-    subj_ids = np.array(sorted(epo.metadata['subject'].unique()))
-    rng = np.random.default_rng(seed)
-    rng.shuffle(subj_ids)
-
-    k = max(1, int(len(subj_ids) * test_fraction))   # at least one subject
-    test_subjects = subj_ids[:k]
-
-    mask_test  = epo.metadata['subject'].isin(test_subjects)
-    mask_train = ~mask_test
-
-    return epo[mask_train], epo[mask_test]
 
 # ------------- Loading Dataset -------------
 
 # Optionally use saved epochs. 
 if True:
     print("🔁 Loading preprocessed epochs from disk...")
-    epochs = mne.read_epochs("allsubjects-allchannels-epo.fif", preload=True)
+    epochs = mne.read_epochs("allsubjects-selectedchannels-epo.fif", preload=True)
 else:
     print("📥 Generating epochs from raw EEG...")
-    # loader = DatasetLoader(subjects=range(1, 109), runs=[4, 8, 12], exclude_subjects=[88, 92, 100, 104], channels=['Fc5.', 'C3..', 'C4..', 'Cz..'])
-    loader = DatasetLoader(subjects=range(1, 109), runs=[4, 8, 12], exclude_subjects=[88, 92, 100, 104])
+    loader = DatasetLoader(subjects=range(1, 109), runs=[4, 8, 12], exclude_subjects=[88, 92, 100, 104], channels = [
+    'Fc3.', 'Fc1.', 'Fcz.', 'Fc2.', 'Fc4.',
+    'C5..',  'C3..',  'C1..',  'Cz..',  'C2..',  'C4..',  'C6..',
+    'Cp3.', 'Cp1.', 'Cpz.', 'Cp2.', 'Cp4.',
+    'P7..',  'P3..',  'Pz..',  'P4..',  'P8..'
+    ])
+    # loader = DatasetLoader(subjects=range(1, 109), runs=[4, 8, 12], exclude_subjects=[88, 92, 100, 104])
     loader.load_raw_data()
-    loader.epochs.save("allsubjects-allchannels-epo.fif", overwrite=True)
+    loader.epochs.save("allsubjects-selectedchannels-epo.fif", overwrite=True)
     epochs = loader.epochs
+
 
 print()
 print("Data loaded successfully!")
@@ -79,17 +90,17 @@ print("Data loaded successfully!")
 clustering_models = []
 
 print("\nTraining clustering model...")
-model1 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 2)
-model2 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 3)
+# model1 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 2)
+# model2 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 3)
 model3 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 4)
-model4 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 5)
-model5 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 6)
+# model4 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 5)
+# model5 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 6)
 
-clustering_models.append(model1)
-clustering_models.append(model2)
+# clustering_models.append(model1)
+# clustering_models.append(model2)
 clustering_models.append(model3)
-clustering_models.append(model4)
-clustering_models.append(model5)
+# clustering_models.append(model4)
+# clustering_models.append(model5)
 
 print("Clustering complete!")
 
@@ -98,7 +109,7 @@ print("Clustering complete!")
 # ------------- Training Model -------------
 # Train baseline EEGNet Model
 modelName = "EEGNet_Baseline"
-trainEpochs = 100
+trainEpochs = 60
 saveName = f"{modelName}_{trainEpochs}epochs.keras"
 
 trainer = ModelTrainer(epochs, modelName)
@@ -126,7 +137,7 @@ for clustering_model in clustering_models:
     clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
     clusterNumber = 1
 
-    trainEpochs = 100
+    trainEpochs = 200
     # Iterate over each cluster in the dictionary
     for cluster_label, subject_list in clustered_subjects.items():
         modelName = f"Cluster Model #{modelIndex} Cluster Group #{clusterNumber}"
@@ -147,14 +158,14 @@ for clustering_model in clustering_models:
         
         # Train the model using the narrowed epochs
         trainer = ModelTrainer(narrowed_epochs, modelName)
-        train_epochs, test_epochs = split_epochs_by_subject(narrowed_epochs, test_fraction=0.2)
+        train_epochs, test_epochs = split_epochs_by_subject(narrowed_epochs)
         trainer.train(train_epochs, test_epochs, num_epochs=trainEpochs)
         trainer.model.save(f"{modelName}.keras")
         clusterNumber += 1
 
 
 # ------------- Analyse Models -------------
-baseline_log = "./logs/EEGNet_training_log.txt"
+baseline_log = "./logs/EEGNet_Baseline_training_log.txt"
 
 
 # 2 Clusters
