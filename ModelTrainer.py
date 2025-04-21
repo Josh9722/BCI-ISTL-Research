@@ -1,20 +1,34 @@
+import os
 import numpy as np
+import tensorflow as tf
+from tensorflow.keras import backend as K, regularizers
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Conv2D, DepthwiseConv2D, SeparableConv2D
-from tensorflow.keras.layers import BatchNormalization, Activation, AveragePooling2D, Dropout, Flatten, Dense
-from tensorflow.keras.constraints import max_norm
-from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.layers import (
+    Input,
+    Conv2D,
+    DepthwiseConv2D,
+    SeparableConv2D,
+    BatchNormalization,
+    Activation,
+    AveragePooling2D,
+    Dropout,
+    Flatten,
+    Dense
+)
+from tensorflow.keras.constraints import max_norm, Constraint
+from tensorflow.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.utils import to_categorical
+
+import tensorflow_addons as tfa
+
+from sklearn.utils import shuffle
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report
-import tensorflow as tf
-import tensorflow.keras.backend as K
-from tensorflow.keras.utils import to_categorical
-import matplotlib.pyplot as plt  
-from sklearn.utils import shuffle
-import os
+
+import matplotlib.pyplot as plt
+
 from CustomLogger import CustomLogger
-import tensorflow_addons as tfa
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+
 
 
 class ModelTrainer:
@@ -117,8 +131,7 @@ class ModelTrainer:
 
 
 
-    def train(self, train_epo, test_epo,
-          num_epochs=50, batch_size=64, val_split=0.1):
+    def train(self, train_epo, test_epo, num_epochs=50, batch_size=64, val_split=0.1):
 
         X_train, y_train, class_weights = self._extract_xy(train_epo)
         X_test,  y_test,  _             = self._extract_xy(test_epo)
