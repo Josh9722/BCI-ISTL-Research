@@ -28,6 +28,7 @@ from sklearn.metrics import classification_report
 import matplotlib.pyplot as plt
 
 from CustomLogger import CustomLogger
+from ModelTester import ModelTester 
 
 
 
@@ -51,6 +52,7 @@ class ModelTrainer:
         self.model = None
         self.train_epochs = None
         self.test_epochs = None
+        self.val_epochs = None
         self.modelName = modelName
         # Create log file at .\logs
         # Create the logs directory if it doesn't exist
@@ -126,12 +128,13 @@ class ModelTrainer:
         outputs = Dense(nb_classes, activation='softmax', kernel_constraint=max_norm(norm_rate))(x)
         self.model = Model(inputs=inputs, outputs=outputs)
 
-        # Compile Model
-        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 
 
     def train(self, train_epo, val_epo, test_epo, num_epochs=50, batch_size=64):
+        self.train_epochs = train_epo
+        self.test_epochs = test_epo
+        self.val_epochs = val_epo
 
         X_train, y_train, cw  = self._extract_xy(train_epo)
         X_val,   y_val,  _    = self._extract_xy(val_epo)
@@ -175,8 +178,11 @@ class ModelTrainer:
         )
 
         # Final audit on completely unseen subjects
+        # evaluateModelPerformance(self, X_test, y_test, history)
         print("\nTraining Complete! Evaluating Performance...")
-        evaluateModelPerformance(self, X_test, y_test, history)
+        tester = ModelTester(self)              # ➋ self carries model & test_epochs
+        tester.overall_report()
+        tester.per_subject_metrics()
         
 
     def predict(self, new_epochs):
