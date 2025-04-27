@@ -1,223 +1,138 @@
-import os
-import re
-import re
-import numpy as np
-from sklearn.linear_model import LinearRegression
-import pandas as pd
+# AnalyseModels.py – condensed 7-feature evaluation
+import os, re, numpy as np, pandas as pd
+from io import StringIO
+from scipy.stats import wilcoxon
 
+# ─── helpers ────────────────────────────────────────────────────────────
+def _per_sub_df(block: str) -> pd.DataFrame:
+    rows = [ln for ln in block.splitlines()
+            if ln.strip() and ln.lstrip()[0].isdigit()]
+    return pd.read_csv(StringIO("\n".join(rows)),
+                       sep=r"\s+",
+                       names=["subject", "n_epochs", "accuracy", "f1"])
+
+def _class_recall(txt: str) -> dict:
+    """
+    Extract recall for T0, T1, T2 anywhere in the log.
+    Works even if the Classification Report header format varies.
+    """
+    rec = {}
+    for ln in txt.splitlines():
+        ln = ln.lstrip()
+        # match 'T0 (Rest) ... precision recall f1 support'
+        m = re.match(r"^(T\d).*?\s([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)", ln)
+        if m:
+            rec[m.group(1)] = float(m.group(3))   # recall column
+    return rec
+
+def _grab_test_table(txt: str) -> str:
+    """
+    Return text under 'Per-subject metrics (test set):' heading.
+    Stops at the first blank line after the table.
+    """
+    head_pat = r"Per-subject metrics \(test set\):"
+    m = re.search(head_pat, txt)
+    if not m:
+        return ""
+    start = m.end()
+    rest  = txt[start:].lstrip("\n")
+    # table ends at first blank line
+    end   = rest.find("\n\n")
+    return rest[:end if end != -1 else None]
+
+
+# ─── single comparison card ─────────────────────────────────────────────
+class _ScoreCard:
+    """Compare one cluster log to baseline; output 7 key metrics."""
+
+    def __init__(self, base_log: str, clus_log: str):
+        self.base_log, self.clus_log = base_log, clus_log
+        self.df_b, self.rec_b = self._load(base_log)
+        self.df_c, self.rec_c = self._load(clus_log)
+
+    def _load(self, path):
+        txt = open(path, encoding="utf-8").read()
+        per_sub = _per_sub_df(_grab_test_table(txt))
+        return per_sub, _class_recall(txt)
+
+    def headline(self) -> str:
+        # 1-5 global stats ------------------------------------------------
+        m_b, s_b = self.df_b.accuracy.mean(), self.df_b.accuracy.std(ddof=1)
+        m_c, s_c = self.df_c.accuracy.mean(), self.df_c.accuracy.std(ddof=1)
+        floor_b, top_b = self.df_b.accuracy.min(), self.df_b.accuracy.max()
+        floor_c, top_c = self.df_c.accuracy.min(), self.df_c.accuracy.max()
+        iqr_b = self.df_b.accuracy.quantile(.75) - self.df_b.accuracy.quantile(.25)
+        iqr_c = self.df_c.accuracy.quantile(.75) - self.df_c.accuracy.quantile(.25)
+        pct50_b = (self.df_b.accuracy >= .5).mean()
+        pct50_c = (self.df_c.accuracy >= .5).mean()
+
+        # 6 Wilcoxon on shared subjects ----------------------------------
+        shared = self.df_b.merge(self.df_c, on="subject", suffixes=("_b", "_c"))
+        pval = wilcoxon(shared.accuracy_c, shared.accuracy_b).pvalue \
+               if len(shared) >= 3 else np.nan
+
+        # 7 per-class recall Δ -------------------------------------------
+        classes = ["T0", "T1", "T2"]
+        d_recall = ", ".join(
+            f"{cl}:{self.rec_c.get(cl, np.nan)-self.rec_b.get(cl, np.nan):+.2f}"
+            if cl in self.rec_b and cl in self.rec_c else f"{cl}:n/a"
+            for cl in classes
+        )
+
+        return (
+            f"[{os.path.basename(self.clus_log)}]\n"
+            f"  1. mean acc ........ {m_b:.3f} → {m_c:.3f} ({m_c-m_b:+.1%})\n"
+            f"  2. stdev ........... {s_b:.3f} → {s_c:.3f} ({s_c-s_b:+.0%})\n"
+            f"  3. floor/ceil ...... {floor_b:.2f}–{top_b:.2f} vs {floor_c:.2f}–{top_c:.2f}\n"
+            f"  4. ≥0.50 ............ {pct50_b:.0%} → {pct50_c:.0%}\n"
+            f"  5. IQR .............. {iqr_b:.2f} → {iqr_c:.2f}\n"
+            f"  6. Wilcoxon Δacc .... "
+            f"{'p='+format(pval,'.4f') if not np.isnan(pval) else 'n<3 shared'}\n"
+            f"  7. Δ recall per cls . {d_recall}\n"
+        )
+
+
+# ─── public API (call-pattern unchanged) ────────────────────────────────
 class AnalyseModels:
-    def __init__(self, baseline_log, clustered_logs):
-        """
-        :param baseline_log: String path to the baseline log file.
-        :param clustered_logs: List of string paths for each clustered model log file.
-        """
-        self.baseline_log = baseline_log
-        self.clustered_logs = clustered_logs
-        self.baseline_data = self.parse_log_file(baseline_log)
-        self.clustered_data = [self.parse_log_file(log) for log in clustered_logs]
-
-    def parse_log_file(self, file_path):
-        """
-        Parses a training log file and returns a dictionary with two keys:
-          - 'epochs': a list of dictionaries for each epoch with keys:
-              'epoch', 'total_epochs', 'loss', 'acc', 'val_loss', 'val_acc'
-          - 'report': a dictionary with classification report details parsed into two subkeys:
-              'classes': a dict mapping each class ("T0 (Rest)", "T1 (Left-Hand)", "T2 (Right-Hand)")
-                         to its precision, recall, f1-score, support.
-              'overall': other overall metrics like 'accuracy', 'macro avg', 'weighted avg'.
-        """
-        data = {
-            'epochs': [],
-            'report': {}
-        }
-        with open(file_path, 'r', encoding='utf-8') as f:
-            contents = f.read()
-        
-        # Extract epoch information using regex.
-        epoch_pattern = r"Epoch\s+(\d+)/(\d+)\s*\|\s*Loss:\s*([0-9.]+)\s*\|\s*Acc:\s*([0-9.]+)\s*\|\s*Val Loss:\s*([0-9.]+)\s*\|\s*Val Acc:\s*([0-9.]+)"
-        epochs = re.findall(epoch_pattern, contents)
-        for ep in epochs:
-            epoch_dict = {
-                'epoch': int(ep[0]),
-                'total_epochs': int(ep[1]),
-                'loss': float(ep[2]),
-                'acc': float(ep[3]),
-                'val_loss': float(ep[4]),
-                'val_acc': float(ep[5])
-            }
-            data['epochs'].append(epoch_dict)
-        
-        # Extract classification report.
-        parts = contents.split("Classification Report:")
-        if len(parts) > 1:
-            report_str = parts[1].strip()
-            lines = report_str.splitlines()
-            # Remove empty lines
-            lines = [line.strip() for line in lines if line.strip()]
-            class_report = {}
-            overall_report = {}
-            # Parse the lines for the three classes of interest and overall metrics.
-            for line in lines:
-                m = re.match(
-                    r"^(T0 \(Rest\)|T1 \(Left-Hand\)|T2 \(Right-Hand\))\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+(\d+)$", 
-                    line)
-                if m:
-                    cls_name = m.group(1)
-                    class_report[cls_name] = {
-                        'precision': float(m.group(2)),
-                        'recall': float(m.group(3)),
-                        'f1-score': float(m.group(4)),
-                        'support': int(m.group(5))
-                    }
-                else:
-                    m_acc = re.match(r"^accuracy\s+([0-9.]+)\s+(\d+)$", line)
-                    if m_acc:
-                        overall_report['accuracy'] = float(m_acc.group(1))
-                        overall_report['support'] = int(m_acc.group(2))
-                    m_macro = re.match(r"^macro avg\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+(\d+)$", line)
-                    if m_macro:
-                        overall_report['macro avg'] = {
-                            'precision': float(m_macro.group(1)),
-                            'recall': float(m_macro.group(2)),
-                            'f1-score': float(m_macro.group(3)),
-                            'support': int(m_macro.group(4))
-                        }
-                    m_weighted = re.match(r"^weighted avg\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+(\d+)$", line)
-                    if m_weighted:
-                        overall_report['weighted avg'] = {
-                            'precision': float(m_weighted.group(1)),
-                            'recall': float(m_weighted.group(2)),
-                            'f1-score': float(m_weighted.group(3)),
-                            'support': int(m_weighted.group(4))
-                        }
-            data['report']['classes'] = class_report
-            data['report']['overall'] = overall_report
-
-        return data
-    
-    def compute_slope(self, epochs_list, metric_key, smoothing_window=5):
-        """
-        Computes the slope (improvement per epoch) for a given accuracy curve.
-        Optionally smooths the data using a moving average.
-        
-        :param epochs_list: List of epoch dictionaries containing an 'epoch' key.
-        :param metric_key: The metric to compute the slope for ('acc' or 'val_acc').
-        :param smoothing_window: Size of the window for moving average smoothing.
-        :return: Slope (average improvement per epoch).
-        """
-        # Extract epoch numbers and corresponding metric values.
-        epochs = [ep['epoch'] for ep in epochs_list]
-        accuracies = [ep[metric_key] for ep in epochs_list]
-        # Smooth the curve if needed.
-        if smoothing_window > 1 and len(accuracies) >= smoothing_window:
-            series = pd.Series(accuracies)
-            smoothed = series.rolling(window=smoothing_window, min_periods=1, center=True).mean()
-            accuracies = smoothed.values
-        X = np.array(epochs).reshape(-1, 1)
-        y = np.array(accuracies)
-        reg = LinearRegression().fit(X, y)
-        return reg.coef_[0]
-
+    def __init__(self, baseline_log: str, clustered_logs: list, out_dir="./logs"):
+        self.base = baseline_log
+        self.clustered = clustered_logs
+        self.out_dir = out_dir
+        os.makedirs(out_dir, exist_ok=True)
 
     def produceReport(self):
-        """
-        Produces a comparative report that shows differences in:
-          - Final epoch metrics (loss, accuracy, validation loss, and validation accuracy)
-          - Classification report per class (T0, T1, T2) differences (precision, recall, F1)
-          - Slope (i.e. average improvement per epoch) differences for training and validation accuracy
-        The reported differences are computed as: (cluster model metric) - (baseline model metric).
-        """
-        baseline_epochs = self.baseline_data.get('epochs', [])
-        baseline_final = baseline_epochs[-1] if baseline_epochs else None
-        baseline_report = self.baseline_data.get('report', {})
+        lines = ["======== CLUSTER SCORECARDS vs BASELINE ========",
+                 f"Baseline file: {self.base}\n"]
 
-        if not baseline_final or not baseline_report:
-            print("Error: Baseline log did not contain required metrics.")
-            return
+        for log in self.clustered:
+            try:
+                lines.append(_ScoreCard(self.base, log).headline())
+            except Exception as e:
+                lines.append(f"[{os.path.basename(log)}]  — could not parse ({e})\n")
 
-        base_classes = baseline_report.get('classes', {})
+        # ---- global average across clusters -------------------------
+        all_means, all_stds = [], []
+        for log in self.clustered:
+            try:
+                df, _ = _ScoreCard(self.base, log)._load(log)
+                all_means.append(df.accuracy.mean())
+                all_stds.append(df.accuracy.std(ddof=1))
+            except Exception:
+                pass
 
-        report_lines = []
+        if all_means and len(lines) >= 2:
+            g_mean = np.mean(all_means)
+            g_std  = np.mean(all_stds)
+            lines.insert(2,
+                f"GLOBAL (avg over {len(all_means)} clusters)"
+                f"  • mean acc {g_mean:.3f}  ·  stdev {g_std:.3f}\n")
 
-        report_lines.append("========= Model Report Analyis =========")
-        # Compute baseline slopes for training and validation accuracy.
+        # ---- print & save ------------------------------------------
+        report = "\n".join(lines)
+        print(report)
 
-        report_lines.append(" - Baseline Model")
-        baseline_train_slope = self.compute_slope(baseline_epochs, 'acc')
-        baseline_val_slope = self.compute_slope(baseline_epochs, 'val_acc')
-
-        report_lines.append(" - Baseline Learning Rate (Average Improvement per Epoch) ===")
-        report_lines.append(f"Baseline Training Acc Slope: {baseline_train_slope:.4f} per epoch")
-        report_lines.append(f"Baseline Validation Acc Slope: {baseline_val_slope:.4f} per epoch\n")
-        report_lines.append(" - End Baseline Model\n")
-
-        report_lines.append("Beginning Cluster Models")
-        # For each clustered model, compare with baseline.
-        for idx, cluster_data in enumerate(self.clustered_data):
-            cluster_epochs = cluster_data.get('epochs', [])
-            cluster_final = cluster_epochs[-1] if cluster_epochs else None
-            cluster_report = cluster_data.get('report', {})
-
-            if not cluster_final or not cluster_report:
-                report_lines.append(f"Cluster Model #{idx+1}: Missing metrics, skipping comparison.\n")
-                continue
-
-            report_lines.append(f"=== Comparison: Cluster Model #{idx+1} vs Baseline ===")
-            # Compute differences in final epoch metrics.
-            diff_loss = cluster_final['loss'] - baseline_final['loss']
-            diff_acc = cluster_final['acc'] - baseline_final['acc']
-            diff_val_loss = cluster_final['val_loss'] - baseline_final['val_loss']
-            diff_val_acc = cluster_final['val_acc'] - baseline_final['val_acc']
-
-            report_lines.append("Differences in Final Epoch Metrics (Cluster - Baseline):")
-            report_lines.append(f"  Loss diff: {diff_loss:.4f}")
-            report_lines.append(f"  Acc diff: {diff_acc:.4f}")
-            report_lines.append(f"  Val Loss diff: {diff_val_loss:.4f}")
-            report_lines.append(f"  Val Acc diff: {diff_val_acc:.4f}")
-
-            # Compute slopes for training and validation accuracy.
-            cluster_train_slope = self.compute_slope(cluster_epochs, 'acc')
-            cluster_val_slope = self.compute_slope(cluster_epochs, 'val_acc')
-            diff_train_slope = cluster_train_slope - baseline_train_slope
-            diff_val_slope = cluster_val_slope - baseline_val_slope
-
-            report_lines.append("\nDifferences in Learning Rate (Slope) (Cluster - Baseline):")
-            report_lines.append(f"  Training Acc Slope diff: {diff_train_slope:+.4f} per epoch")
-            report_lines.append(f"  Validation Acc Slope diff: {diff_val_slope:+.4f} per epoch")
-
-            # Compare classification report differences for each class.
-            cluster_classes = cluster_report.get('classes', {})
-            report_lines.append("\nDifferences in Classification Report per Class (Cluster - Baseline):")
-            for cls in ['T0 (Rest)', 'T1 (Left-Hand)', 'T2 (Right-Hand)']:
-                if cls in base_classes and cls in cluster_classes:
-                    diff_prec = cluster_classes[cls]['precision'] - base_classes[cls]['precision']
-                    diff_recall = cluster_classes[cls]['recall'] - base_classes[cls]['recall']
-                    diff_f1 = cluster_classes[cls]['f1-score'] - base_classes[cls]['f1-score']
-                    report_lines.append(
-                        f"{cls} - Precision diff: {diff_prec:.4f}, "
-                        f"Recall diff: {diff_recall:.4f}, F1 diff: {diff_f1:.4f}"
-                    )
-            report_lines.append("\n" + "=" * 50 + "\n")
-
-        full_report = "\n".join(report_lines)
-        print(full_report)
-
-         # Naming convention: baseline_{baseline_epochs}_cluster_{cluster_epochs}_{n_groups}groups.txt
-        baseline_epoch_count = len(baseline_epochs)
-        # Assuming that all cluster models are trained for the same number of epochs, take the first one.
-        if self.clustered_data and self.clustered_data[0].get('epochs', []):
-            cluster_epoch_count = len(self.clustered_data[0]['epochs'])
-        else:
-            cluster_epoch_count = "unknown"
-        n_groups = len(self.clustered_data)
-        file_name = f"baseline_{baseline_epoch_count}_cluster_{cluster_epoch_count}_{n_groups}groups.txt"
-        report_dir = "./logs"
-        os.makedirs(report_dir, exist_ok=True)
-        report_file = os.path.join(report_dir, file_name)
-        with open(report_file, 'w', encoding='utf-8') as f:
-            f.write(full_report)
-        print(f"Report saved to {report_file}")
-
-
-    
-    
+        fname = os.path.join(self.out_dir,
+                             f"scorecards_{len(self.clustered)}clusters.txt")
+        with open(fname, "w", encoding="utf-8") as f:
+            f.write(report)
+        print(f"\nSaved condensed report → {fname}\n")
