@@ -26,7 +26,66 @@ class DatasetLoader:
         self.file_paths = []      # store file paths
 
     
+    def print_event_distribution_by_subject(self, labels=("T0", "T1", "T2"), verbose: bool = True):
+        epochs = self.epochs            # use the loader's epochs
+    
+        """
+        Print and return a table of event counts per subject.
+
+        Output format (also returned as a DataFrame):
+            Subject  T0   T1   T2   total
+            1        60   60   60   180
+            2        62   62   62   186
+            ...
+
+        Parameters
+        ----------
+        epochs : mne.Epochs
+            The epochs object with 'subject' metadata and events array.
+        labels : tuple[str]
+            Class labels to include. Any label absent in event_id is ignored.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Table (index = subject) with counts per label and a 'total' column.
+        """
+        # 1) Map label → numeric event code (skip missing)
+        code_map = {lab: epochs.event_id[lab]
+                    for lab in labels if lab in epochs.event_id}
+
+        # 2) Build DataFrame with subject & label columns
+        subs = epochs.metadata["subject"].values
+        events = epochs.events[:, 2]
+
+        data = {
+            "subject": subs,
+            "event_code": events
+        }
+        df = pd.DataFrame(data)
+
+        # 3) Count per subject & label
+        counts = (
+            df.groupby("subject")["event_code"]
+            .value_counts()
+            .unstack(fill_value=0)
+            .rename(columns={v: k for k, v in code_map.items()})
+            .reindex(columns=labels, fill_value=0)    # ensure T0,T1,T2 order
+        )
+
+        counts["total"] = counts.sum(axis=1)
+        counts = counts.astype(int).sort_index()
+
+        # 4) Pretty-print
+        print("─ Event distribution per subject ─")
+        for subj, row in counts.iterrows():
+            parts = [f"{lab}:{row[lab]}" for lab in labels]
+            print(f"{subj:>3} :  " + ", ".join(parts))
+
+        return counts
+    
     def balance_T0_T1_epochs(self, epochs, t0_label='T0', t1_label='T1', random_state=42):
+        return epochs
         """
         Return a new Epochs where the number of T0 events equals the number of T1 events
         by down‑sampling the T0 class. All other event types remain unchanged.
@@ -125,7 +184,7 @@ class DatasetLoader:
                 metadata = pd.DataFrame({'subject': [sub_id] * len(events)})
 
                 # Create epochs from this file (adjust tmin and tmax as needed), including metadata
-                epochs = mne.Epochs(raw, events, event_id, tmin=1, tmax=4.1,
+                epochs = mne.Epochs(raw, events, event_id, tmin=0, tmax=4.0,
                                     proj=False, picks=picks, baseline=None,
                                     preload=True, reject_by_annotation=False,
                                     metadata=metadata, verbose=False)
