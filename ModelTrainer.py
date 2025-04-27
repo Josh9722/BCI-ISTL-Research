@@ -131,13 +131,16 @@ class ModelTrainer:
 
 
 
-    def train(self, train_epo, test_epo, num_epochs=50, batch_size=64, val_split=0.1):
+    def train(self, train_epo, val_epo, test_epo, num_epochs=50, batch_size=64):
 
-        X_train, y_train, class_weights = self._extract_xy(train_epo)
-        X_test,  y_test,  _             = self._extract_xy(test_epo)
+        X_train, y_train, cw  = self._extract_xy(train_epo)
+        X_val,   y_val,  _    = self._extract_xy(val_epo)
+        X_test,  y_test, _    = self._extract_xy(test_epo)
 
-        y_train = to_categorical(y_train, num_classes=3)
-        y_test  = to_categorical(y_test,  num_classes=3)
+        y_train = to_categorical(y_train, 3)
+        y_val   = to_categorical(y_val,   3)
+        y_test  = to_categorical(y_test,  3)
+
         # build model
         self.build_model(nb_classes=3,
                         Chans=X_train.shape[1],
@@ -154,27 +157,26 @@ class ModelTrainer:
         )
 
         cbs = [
-            EarlyStopping(monitor='val_macroF1', patience=15,
-                        mode='max', restore_best_weights=True),
-            ReduceLROnPlateau(monitor='val_macroF1', factor=0.5,
-                            patience=7, mode='max', min_lr=1e-5),
+            # EarlyStopping(monitor='val_macroF1', patience=15,
+            #             mode='max', restore_best_weights=True),
+            # ReduceLROnPlateau(monitor='val_macroF1', factor=0.5,
+            #                 patience=7, mode='max', min_lr=1e-5),
             CustomLogger(self.log_file)
         ]
 
-        print("\nStarting Training")
         history = self.model.fit(
-            X_train, y_train,
-            epochs=num_epochs,
-            batch_size=batch_size,
-            class_weight=class_weights,
-            validation_split=val_split,
-            callbacks=cbs,
-            verbose=0
+        X_train, y_train,
+        validation_data=(X_val, y_val),   # ← subject-wise val
+        epochs=num_epochs,
+        batch_size=batch_size,
+        class_weight=cw,
+        verbose=0,
+        callbacks=cbs
         )
 
+        # Final audit on completely unseen subjects
         print("\nTraining Complete! Evaluating Performance...")
         evaluateModelPerformance(self, X_test, y_test, history)
-
         
 
     def predict(self, new_epochs):

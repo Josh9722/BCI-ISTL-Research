@@ -22,22 +22,31 @@ from AnalyseModels import AnalyseModels
 # ------------- Helper Functions -------------
 
 # The original fundction that withholds the complete subject(s)
-def split_epochs_by_subject(epo, test_fraction=0.2, seed=40):
+def split_subjects(epo, val_frac=0.1, test_frac=0.2, seed=40):
     """
-    Randomly hold out ~test_fraction of subjects (default 20 %)  
-    Returns: train_epochs, test_epochs, test_subject_ids
+    Split an MNE Epochs object into train/val/test with *disjoint subjects*.
+
+    Returns
+    -------
+    train_epo, val_epo, test_epo
     """
     subj_ids = np.array(sorted(epo.metadata['subject'].unique()))
     rng = np.random.default_rng(seed)
     rng.shuffle(subj_ids)
 
-    k = max(1, int(len(subj_ids) * test_fraction))   # at least one subject
-    test_subjects = subj_ids[:k]
+    n_total = len(subj_ids)
+    n_test  = max(1, int(n_total * test_frac))
+    n_val   = max(1, int(n_total * val_frac))
 
-    mask_test  = epo.metadata['subject'].isin(test_subjects)
-    mask_train = ~mask_test
+    test_subj = subj_ids[:n_test]
+    val_subj  = subj_ids[n_test:n_test + n_val]
+    train_subj = subj_ids[n_test + n_val:]
 
-    return epo[mask_train], epo[mask_test]
+    mask_test  = epo.metadata['subject'].isin(test_subj)
+    mask_val   = epo.metadata['subject'].isin(val_subj)
+    mask_train = ~(mask_test | mask_val)
+
+    return epo[mask_train], epo[mask_val], epo[mask_test]
 
 
 def trainClusteringModel(epochs, trainEpochs = 1, chans = 64, nb_clusters = 3):
@@ -90,17 +99,17 @@ print("Data loaded successfully!")
 clustering_models = []
 
 print("\nTraining clustering model...")
-# model1 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 2)
-# model2 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 3)
+model1 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 2)
+model2 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 3)
 model3 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 4)
-# model4 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 5)
-# model5 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 6)
+model4 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 5)
+model5 = trainClusteringModel(epochs=epochs, trainEpochs = 50, chans = epochs.info['nchan'], nb_clusters = 6)
 
-# clustering_models.append(model1)
-# clustering_models.append(model2)
+clustering_models.append(model1)
+clustering_models.append(model2)
 clustering_models.append(model3)
-# clustering_models.append(model4)
-# clustering_models.append(model5)
+clustering_models.append(model4)
+clustering_models.append(model5)
 
 print("Clustering complete!")
 
@@ -109,16 +118,17 @@ print("Clustering complete!")
 # ------------- Training Model -------------
 # Train baseline EEGNet Model
 modelName = "EEGNet_Baseline"
-trainEpochs = 60
-saveName = f"{modelName}_{trainEpochs}epochs.keras"
+trainEpochs = 80
+chans = epochs.info['nchan']
+saveName = f"{modelName}_{trainEpochs}epochs_{chans}chans.keras"
 
 trainer = ModelTrainer(epochs, modelName)
 if os.path.exists(saveName):
     print("Loading existing baseline model...")
     trainer.model = load_model(saveName, safe_mode = False)
 else:
-    train_epochs, test_epochs = split_epochs_by_subject(epochs, test_fraction=0.2)
-    trainer.train(train_epochs, test_epochs, num_epochs=trainEpochs)
+    train_epo, val_epo, test_epo = split_subjects(epochs, val_frac=0.1, test_frac=0.2)
+    trainer.train(train_epo, val_epo, test_epo, trainEpochs)
 
     # Save EEGNet model
     trainer.model.save(saveName)
@@ -137,7 +147,7 @@ for clustering_model in clustering_models:
     clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
     clusterNumber = 1
 
-    trainEpochs = 200
+    trainEpochs = 80
     # Iterate over each cluster in the dictionary
     for cluster_label, subject_list in clustered_subjects.items():
         modelName = f"Cluster Model #{modelIndex} Cluster Group #{clusterNumber}"
@@ -158,8 +168,8 @@ for clustering_model in clustering_models:
         
         # Train the model using the narrowed epochs
         trainer = ModelTrainer(narrowed_epochs, modelName)
-        train_epochs, test_epochs = split_epochs_by_subject(narrowed_epochs)
-        trainer.train(train_epochs, test_epochs, num_epochs=trainEpochs)
+        train_epo, val_epo, test_epo = split_subjects(narrowed_epochs, val_frac=0.1, test_frac=0.2)
+        trainer.train(train_epo, val_epo, test_epo, trainEpochs)
         trainer.model.save(f"{modelName}.keras")
         clusterNumber += 1
 
