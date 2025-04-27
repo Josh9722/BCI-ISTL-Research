@@ -88,10 +88,35 @@ else:
     loader.load_raw_data()
     loader.epochs.save("allsubjects-selectedchannels-epo.fif", overwrite=True)
     epochs = loader.epochs
+    loader.print_event_distribution_by_subject()
 
 
 print()
 print("Data loaded successfully!")
+
+
+
+# ------------- Training Model -------------
+# Train baseline EEGNet Model
+modelName = "EEGNet_Baseline"
+trainEpochs = 60
+chans = epochs.info['nchan']
+saveName = f"{modelName}_{trainEpochs}epochs_{chans}chans.keras"
+
+trainer = ModelTrainer(epochs, modelName)
+if os.path.exists(saveName):
+    print("Loading existing baseline model...")
+    trainer.model = load_model(saveName, safe_mode = False)
+else:
+    train_epo, val_epo, test_epo = split_subjects(epochs, val_frac=0.1, test_frac=0.2)
+    trainer.train(train_epo, val_epo, test_epo, trainEpochs)
+
+    # Save EEGNet model
+    trainer.model.save(saveName)
+    print("\nModel saved as ", saveName)
+
+
+
 
 
 # ------------- Clustering Data -------------
@@ -114,27 +139,6 @@ clustering_models.append(model5)
 print("Clustering complete!")
 
 
-
-# ------------- Training Model -------------
-# Train baseline EEGNet Model
-modelName = "EEGNet_Baseline"
-trainEpochs = 80
-chans = epochs.info['nchan']
-saveName = f"{modelName}_{trainEpochs}epochs_{chans}chans.keras"
-
-trainer = ModelTrainer(epochs, modelName)
-if os.path.exists(saveName):
-    print("Loading existing baseline model...")
-    trainer.model = load_model(saveName, safe_mode = False)
-else:
-    train_epo, val_epo, test_epo = split_subjects(epochs, val_frac=0.1, test_frac=0.2)
-    trainer.train(train_epo, val_epo, test_epo, trainEpochs)
-
-    # Save EEGNet model
-    trainer.model.save(saveName)
-    print("\nModel saved as ", saveName)
-
-
 # Train model for each cluster
 # Get a dictionary mapping cluster labels to lists of subjects
 
@@ -147,10 +151,11 @@ for clustering_model in clustering_models:
     clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
     clusterNumber = 1
 
-    trainEpochs = 80
+    trainEpochs = 60
     # Iterate over each cluster in the dictionary
     for cluster_label, subject_list in clustered_subjects.items():
         modelName = f"Cluster Model #{modelIndex} Cluster Group #{clusterNumber}"
+
             
         # Create a boolean mask: True for epochs whose 'subject' is in subject_list
         mask = epochs.metadata['subject'].isin(subject_list)
@@ -168,10 +173,15 @@ for clustering_model in clustering_models:
         
         # Train the model using the narrowed epochs
         trainer = ModelTrainer(narrowed_epochs, modelName)
-        train_epo, val_epo, test_epo = split_subjects(narrowed_epochs, val_frac=0.1, test_frac=0.2)
-        trainer.train(train_epo, val_epo, test_epo, trainEpochs)
-        trainer.model.save(f"{modelName}.keras")
-        clusterNumber += 1
+        saveName = f"{modelName}.keras"
+        if os.path.exists(saveName):
+            print("Loading existing clustered model...")
+            trainer.model = load_model(saveName, safe_mode = False)
+        else:
+            train_epo, val_epo, test_epo = split_subjects(narrowed_epochs, val_frac=0.1, test_frac=0.2)
+            trainer.train(train_epo, val_epo, test_epo, trainEpochs)
+            trainer.model.save(saveName)
+            clusterNumber += 1
 
 
 # ------------- Analyse Models -------------

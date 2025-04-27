@@ -76,7 +76,10 @@ class ClusteringModel:
         x = Flatten()(x)
         embeddings = Dense(self.embedding_dim, activation=None, name="embedding")(x)
         # Normalize embeddings to unit length
-        norm_embeddings = Lambda(lambda t: K.l2_normalize(t, axis=1), name="norm_embedding")(embeddings)
+        eps = 1e-10
+        norm_embeddings = Lambda(
+            lambda t: tf.math.l2_normalize(t, axis=1, epsilon=eps),
+            name="norm_embedding")(embeddings)
 
         self.embedding_model = Model(inputs=inputs, outputs=norm_embeddings)
         
