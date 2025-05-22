@@ -124,7 +124,7 @@ def generate_summary_text(df: pd.DataFrame) -> str:
 
     for model in df['cluster_model'].unique():
         group = df[df['cluster_model'] == model]
-        subject_count = group['subject'].nunique()  # ✅ CORRECT: count unique subject IDs
+        subject_count = group['subject'].nunique()
 
         improved = (group["final_val_acc_delta"] > 0).sum()
         worsened = (group["final_val_acc_delta"] < 0).sum()
@@ -188,7 +188,7 @@ def add_cluster_purity_to_df(df: pd.DataFrame, cluster_root: str) -> pd.DataFram
         # Extract base cluster model (e.g., ClusterModel1 from ClusterModel1_Group2)
         base_match = re.match(r"(ClusterModel\d+)_Group\d+", full_model_name)
         if not base_match:
-            print(f"❌ Could not extract base model name from {full_model_name}")
+            print(f"Could not extract base model name from {full_model_name}")
             continue
 
         base_model_name = base_match.group(1)
@@ -199,17 +199,17 @@ def add_cluster_purity_to_df(df: pd.DataFrame, cluster_root: str) -> pd.DataFram
         dist_path = os.path.join(cluster_root, base_model_name, dist_file)
 
         if not os.path.exists(dist_path):
-            print(f"⚠️ Missing cluster distribution file: {dist_path}")
+            print(f"Missing cluster distribution file: {dist_path}")
             continue
 
         try:
             dist_df = pd.read_csv(dist_path, sep=r'\s+', header=0, index_col=0, engine='python')
             dist_df.index = dist_df.index.map(lambda x: f"S{int(x)}" if str(x).isdigit() else x)
         except Exception as e:
-            print(f"❌ Failed to read {dist_path}: {e}")
+            print(f"Failed to read {dist_path}: {e}")
             continue
 
-        print(f"\n✅ Processing {full_model_name} (→ using {base_model_name}'s distribution)")
+        print(f"\nProcessing {full_model_name} (→ using {base_model_name}'s distribution)")
         print("Example cluster distribution entries:")
         print(dist_df.head(3))
 
@@ -224,12 +224,12 @@ def add_cluster_purity_to_df(df: pd.DataFrame, cluster_root: str) -> pd.DataFram
                 purity_scores.append((full_model_name, subject_id, purity))
                 matched += 1
             else:
-                print(f"⚠️ Subject {subject_id} not found in distribution for {base_model_name}")
+                print(f"Subject {subject_id} not found in distribution for {base_model_name}")
 
-        print(f"✅ Matched {matched}/{len(model_subjects)} subjects in {full_model_name}\n")
+        print(f"Matched {matched}/{len(model_subjects)} subjects in {full_model_name}\n")
 
     purity_df = pd.DataFrame(purity_scores, columns=['cluster_model', 'subject', 'cluster_purity'])
-    print("📊 Sample of purity scores:")
+    print("Sample of purity scores:")
     print(purity_df.head(5))
 
     df_merged = df.merge(purity_df, on=['cluster_model', 'subject'], how='left')

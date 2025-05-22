@@ -14,10 +14,8 @@ import logging
 
 # Classes 
 from DatasetLoader import DatasetLoader
-# from DataPreprocessor import DataPreprocessor
 from ModelTrainer import ModelTrainer
 from ClusteringModel import ClusteringModel
-from AnalyseModels import AnalyseModels
 from ModelTester import ModelTester
 
 
@@ -54,7 +52,6 @@ def run_loso_model(epochs, model_name, n_epochs, log_dir="./logs"):
     # Ensure log directory exists
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, f"{save_name}.txt")
-
     
     # Create a dedicated logger
     logger = logging.getLogger(model_name)
@@ -132,7 +129,7 @@ def trainClusteringModel(epochs, trainEpochs = 1, chans = 64, nb_clusters = 3):
     counts['total'] = sum(counts.values())
     print("Epoch counts by class:", counts)
     
-    # Get only epochs from event T0 (rest)
+    # Optional: Get only epochs from event T0 (rest) to perform clustering. 
     epochs = epochs['T0']
     labels = ['T0', 'T1', 'T2']
     counts = {lab: len(epochs[lab]) for lab in labels if lab in epochs.event_id}
@@ -161,7 +158,7 @@ def trainClusteringModel(epochs, trainEpochs = 1, chans = 64, nb_clusters = 3):
 # ------------- Loading Dataset -------------
 
 # Optionally use saved epochs. 
-if True:
+if False:
     print("🔁 Loading preprocessed epochs from disk...")
     epochs = mne.read_epochs("allsubjects-selectedchannels-epo.fif", preload=True)
 else:
@@ -173,24 +170,16 @@ else:
     epochs = loader.epochs
     loader.print_event_distribution_by_subject()
 
-
 print()
 print("Data loaded successfully!")
 
 
-
 # ------------- Training Model -------------
 # Train baseline EEGNet Model - LOSO 
-
 modelName   = "EEGNet_Baseline"
 log_dir     = "./logs/baseline_model"
 trainEpochs = 50
 baseline_results = run_loso_model(epochs, modelName, trainEpochs, log_dir)
-
-
-# Shallow Net Model
-# Deep Conv Model
-# EEGNet Model
 
 
 # ------------- Clustering Data -------------
@@ -213,8 +202,7 @@ clustering_models.append(model5)
 print("Clustering complete!")
 
 
-# Train model for each cluster
-# Get a dictionary mapping cluster labels to lists of subjects
+# Train LOSO models for each group of each cluster model. 
 modelIndex = 0
 trainEpochs = 50
 log_dir     = "./logs/clustering_models"

@@ -85,7 +85,6 @@ class DatasetLoader:
         return counts
     
     def balance_T0_T1_epochs(self, epochs, t0_label='T0', t1_label='T1', random_state=42):
-        return epochs
         """
         Return a new Epochs where the number of T0 events equals the number of T1 events
         by down‑sampling the T0 class. All other event types remain unchanged.
@@ -201,8 +200,9 @@ class DatasetLoader:
         print("Epochs for all runs and subjects have been concatenated.")
         print(f"Total number of epochs: {len(self.epochs)}")
 
-        self.epochs = self.balance_T0_T1_epochs(self.epochs, t0_label='T0', t1_label='T1')
-        print(f"Balanced T0/T1: now {len(self.epochs)} total epochs")
+        # Optional Balancing: 
+        # self.epochs = self.balance_T0_T1_epochs(self.epochs, t0_label='T0', t1_label='T1')
+        # print(f"Balanced T0/T1: now {len(self.epochs)} total epochs")
 
         # If channels are provided, filter the epochs to include only those channels.
         if self.channels is not None:

@@ -7,7 +7,7 @@ class CustomLogger(Callback):
     def __init__(self, log_file):
         super(CustomLogger, self).__init__()
         self.log_file = log_file
-        # Optionally initialize the file, e.g. create it or write a header.
+        
         with open(self.log_file, 'w') as f:
             f.write("Training Log\n")
             f.write("============\n")
