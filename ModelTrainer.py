@@ -13,11 +13,13 @@ from tensorflow.keras.layers import (
     AveragePooling2D,
     Dropout,
     Flatten,
-    Dense
+    Dense, 
+    Lambda
 )
 from tensorflow.keras.constraints import max_norm, Constraint
 from tensorflow.keras.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.layers import MaxPooling2D
 
 import tensorflow_addons as tfa
 
@@ -45,9 +47,7 @@ class ModelTrainer:
         return X, y, class_weights
 
 
-    def __init__(self, epochs, modelName = "EEGNet"):
-        if epochs is None:
-            raise ValueError("Error: No epochs provided to ModelTrainer.")
+    def __init__(self, epochs = None, modelName = "EEGNet", log_dir = './logs', type = "EEGNet"):
         self.epochs = epochs
         self.model = None
         self.train_epochs = None
@@ -56,11 +56,37 @@ class ModelTrainer:
         self.modelName = modelName
         # Create log file at .\logs
         # Create the logs directory if it doesn't exist
-        log_dir = './logs'
-        os.makedirs(log_dir, exist_ok=True)
-        log_fileName = f"{modelName}_training_log.txt"
-        self.log_file = os.path.join(log_dir, log_fileName)
+        self.log_dir = log_dir
+
         
+        # build model
+        if type == "EEGNet":
+            self.build_EEGNET_model(nb_classes=3,
+                            Chans=5,
+                            Samples=641)
+        elif type == "ShallowNet":
+            self.build_ShallowConvNet_model(nb_classes=3,
+                            Chans=5,
+                            Samples=641)
+        elif type == "DeepConvNet":
+            self.build_DeepConvNet_model(nb_classes=3, Chans=5, Samples=641)    
+        
+        
+        # Compile with macro‑F1 so callbacks have a target
+        self.model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy',
+            metrics=['accuracy',
+                    tfa.metrics.F1Score(num_classes=3,
+                                        average='macro',
+                                        name='macroF1')]
+        )
+
+        self.inital_weights = self.model.get_weights()
+        
+    def reset_weights(self):
+        """ Reset model weights to initial state. """
+        self.model.set_weights(self.inital_weights)
 
     def prepare_data(self, epo=None, shuffle_data=True):
         """
@@ -98,9 +124,55 @@ class ModelTrainer:
         return X, y, class_weights
 
 
+    def build_DeepConvNet_model(self,
+                            nb_classes,
+                            Chans,
+                            Samples,
+                            dropoutRate=0.5,
+                            F1=25,
+                            D=2,
+                            norm_rate=0.25):
+        print("Building DeepConvNet model...")
+
+        inputs = Input(shape=(Chans, Samples, 1))
+
+        # Block 1 - Temporal Conv
+        x = Conv2D(F1, (1, 5), padding='same', use_bias=False)(inputs)
+        x = BatchNormalization()(x)
+        x = Activation('elu')(x)
+        x = MaxPooling2D(pool_size=(1, 2))(x)
+        x = Dropout(dropoutRate)(x)
+
+        # Block 2 - Spatial Conv
+        x = Conv2D(F1 * D, (Chans, 1), use_bias=False, kernel_constraint=max_norm(1.0))(x)
+        x = BatchNormalization()(x)
+        x = Activation('elu')(x)
+        x = MaxPooling2D(pool_size=(1, 2))(x)
+        x = Dropout(dropoutRate)(x)
+
+        # Block 3
+        x = Conv2D(F1 * D * 2, (1, 5), padding='same', use_bias=False)(x)
+        x = BatchNormalization()(x)
+        x = Activation('elu')(x)
+        x = MaxPooling2D(pool_size=(1, 2))(x)
+        x = Dropout(dropoutRate)(x)
+
+        # Block 4
+        x = Conv2D(F1 * D * 2, (1, 5), padding='same', use_bias=False)(x)
+        x = BatchNormalization()(x)
+        x = Activation('elu')(x)
+        x = MaxPooling2D(pool_size=(1, 2))(x)
+        x = Dropout(dropoutRate)(x)
+
+        # Classification
+        x = Flatten()(x)
+        outputs = Dense(nb_classes, activation='softmax', kernel_constraint=max_norm(norm_rate))(x)
+
+        self.model = Model(inputs=inputs, outputs=outputs)
 
 
-    def build_model(self, nb_classes, Chans, Samples, dropoutRate=0.25, kernLength=64, F1=8, D=2, F2=16, norm_rate=0.25):
+
+    def build_EEGNET_model(self, nb_classes, Chans, Samples, dropoutRate=0.25, kernLength=64, F1=8, D=2, F2=16, norm_rate=0.25):
         """ Constructs the EEGNet model. """
         inputs = Input(shape=(Chans, Samples, 1))
 
@@ -128,10 +200,60 @@ class ModelTrainer:
         outputs = Dense(nb_classes, activation='softmax', kernel_constraint=max_norm(norm_rate))(x)
         self.model = Model(inputs=inputs, outputs=outputs)
 
+    def build_ShallowConvNet_model(self,
+                               nb_classes,
+                               Chans,
+                               Samples,
+                               dropoutRate=0.5,
+                               F1=40,
+                               kernLength=25,
+                               poolLength=75,
+                               stride=15):
+        print("Building ShallowConvNet model...")
+        def square(x):
+            return K.square(x)
+        def log(x):
+            # avoid log(0)
+            return K.log(K.clip(x, K.epsilon(), None))
 
+        inputs = Input(shape=(Chans, Samples, 1))
 
+        # 1) Temporal convolution
+        x = Conv2D(F1,
+                kernel_size=(1, kernLength),
+                padding='same',
+                use_bias=False)(inputs)
+
+        # 2) Spatial filtering
+        x = Conv2D(F1,
+                kernel_size=(Chans, 1),
+                use_bias=False,
+                kernel_constraint=max_norm(2., axis=(0,1,2)))(x)
+        x = BatchNormalization()(x)
+
+        # 3) Square non-linearity
+        x = Lambda(square)(x)
+
+        # 4) Average pooling + log non-linearity
+        x = AveragePooling2D(pool_size=(1, poolLength),
+                            strides=(1, stride))(x)
+        x = Lambda(log)(x)
+
+        # 5) Dropout
+        x = Dropout(dropoutRate)(x)
+
+        # 6) Classification head
+        x = Flatten()(x)
+        outputs = Dense(nb_classes,
+                        activation='softmax')(x)
+
+        self.model = Model(inputs=inputs, outputs=outputs)
 
     def train(self, train_epo, val_epo, test_epo, num_epochs=50, batch_size=64):
+        os.makedirs(self.log_dir, exist_ok=True)
+        log_fileName = f"{self.modelName}_training_log.txt"
+        self.log_file = os.path.join(self.log_dir, log_fileName)
+        
         self.train_epochs = train_epo
         self.test_epochs = test_epo
         self.val_epochs = val_epo
@@ -144,20 +266,9 @@ class ModelTrainer:
         y_val   = to_categorical(y_val,   3)
         y_test  = to_categorical(y_test,  3)
 
-        # build model
-        self.build_model(nb_classes=3,
-                        Chans=X_train.shape[1],
-                        Samples=X_train.shape[2])
+        # elif type == "EEGNET2":
 
-        # re‑compile with macro‑F1 so callbacks have a target
-        self.model.compile(
-            optimizer='adam',
-            loss='categorical_crossentropy',
-            metrics=['accuracy',
-                    tfa.metrics.F1Score(num_classes=3,
-                                        average='macro',
-                                        name='macroF1')]
-        )
+
 
         cbs = [
             # EarlyStopping(monitor='val_macroF1', patience=15,
@@ -180,9 +291,8 @@ class ModelTrainer:
         # Final audit on completely unseen subjects
         # evaluateModelPerformance(self, X_test, y_test, history)
         print("\nTraining Complete! Evaluating Performance...")
-        tester = ModelTester(self)              # ➋ self carries model & test_epochs
-        tester.overall_report()
-        tester.per_subject_metrics()
+        
+        # tester.per_subject_metrics()
         
 
     def predict(self, new_epochs):
