@@ -7,8 +7,10 @@ import matplotlib.pyplot as plt
 import mne
 from mne.io import concatenate_raws
 from tensorflow.keras.models import load_model
+import tensorflow.keras.backend as K
 import os
-
+from sklearn.model_selection import LeaveOneGroupOut
+import logging
 
 # Classes 
 from DatasetLoader import DatasetLoader
@@ -16,41 +18,127 @@ from DatasetLoader import DatasetLoader
 from ModelTrainer import ModelTrainer
 from ClusteringModel import ClusteringModel
 from AnalyseModels import AnalyseModels
-
+from ModelTester import ModelTester
 
 
 # ------------- Helper Functions -------------
-
-# The original fundction that withholds the complete subject(s)
-def split_subjects(epo, val_frac=0.1, test_frac=0.2, seed=40):
+# ------------- LOSO Helper -------------
+def get_train_test(epochs, subjects, leave_out_subj, cluster_map=None):
     """
-    Split an MNE Epochs object into train/val/test with *disjoint subjects*.
-
-    Returns
-    -------
-    train_epo, val_epo, test_epo
+    Build X_train, y_train, X_test, y_test leaving out all epochs
+    for `leave_out_subj`. If cluster_map is given, only epochs
+    in leave_out_subj's cluster are used in both train & test.
     """
-    subj_ids = np.array(sorted(epo.metadata['subject'].unique()))
-    rng = np.random.default_rng(seed)
-    rng.shuffle(subj_ids)
+    # boolean masks
+    test_mask  = (epochs.metadata['subject'] == leave_out_subj)
+    if cluster_map is not None:
+        target_cl = cluster_map[leave_out_subj]
+        in_cluster = epochs.metadata['subject'].map(cluster_map) == target_cl
+        test_mask &= in_cluster
+        train_mask = in_cluster & ~test_mask
+    else:
+        train_mask = ~test_mask
 
-    n_total = len(subj_ids)
-    n_test  = max(1, int(n_total * test_frac))
-    n_val   = max(1, int(n_total * val_frac))
+    train_epo = epochs[train_mask]
+    test_epo  = epochs[test_mask]
+    return train_epo, test_epo
 
-    test_subj = subj_ids[:n_test]
-    val_subj  = subj_ids[n_test:n_test + n_val]
-    train_subj = subj_ids[n_test + n_val:]
 
-    mask_test  = epo.metadata['subject'].isin(test_subj)
-    mask_val   = epo.metadata['subject'].isin(val_subj)
-    mask_train = ~(mask_test | mask_val)
+def run_loso_model(epochs, model_name, n_epochs, log_dir="./logs"):
+    # Prepare names and labels
+    chans     = epochs.info['nchan']
+    save_name = f"{model_name}_{n_epochs}epochs_{chans}chans.keras"
+    labels = epochs.events[:, 2] - 1
+    classes   = np.unique(labels)
 
-    return epo[mask_train], epo[mask_val], epo[mask_test]
+    # Ensure log directory exists
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, f"{save_name}.txt")
+
+    
+    # Create a dedicated logger
+    logger = logging.getLogger(model_name)
+    logger.setLevel(logging.INFO)
+
+    # Remove any old handlers (if re-running in same session)
+    logger.handlers.clear()
+
+    # Add a file handler just for this run
+    fh = logging.FileHandler(log_path, mode="w")
+    fh.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(fh)
+
+    # Write header
+    header = ["Subject", "OverallAcc"] + [f"Class{c}Acc" for c in classes]
+    logger.info("\t".join(header))
+
+    # LOSO split
+    logo = LeaveOneGroupOut()
+    model_results = {}
+
+    # Train (assuming ModelTrainer already builds & compiles self.model)
+    trainer = ModelTrainer(type = "EEGNet", log_dir=log_dir)
+    for train_idx, test_idx in logo.split(X=epochs, y=labels, groups=epochs.metadata['subject']):
+        # 1) Clear any old model
+        K.clear_session()
+        trainer.reset_weights()
+        
+        subj      = epochs.metadata['subject'].iloc[test_idx[0]]
+        train_epo = epochs[train_idx]
+        test_epo  = epochs[test_idx]
+
+        trainer.modelName = f"{model_name}_S{subj}"
+        trainer.train(
+            train_epo,  # train set
+            test_epo,  # dummy val set
+            test_epo,   # test set
+            n_epochs    # number of epochs
+        )
+
+        
+        raw_preds = trainer.predict(test_epo)
+        preds     = np.argmax(raw_preds, axis=1) if raw_preds.ndim == 2 else raw_preds
+        true_lbls = labels[test_idx]
+
+        overall_acc = (preds == true_lbls).mean()
+        class_accs  = [(preds[true_lbls == c] == c).mean() 
+                       if np.any(true_lbls == c) else np.nan
+                       for c in classes]
+
+        model_results[subj] = {
+            "overall": overall_acc,
+            **{f"class_{c}": acc for c, acc in zip(classes, class_accs)}
+        }
+
+        row = [subj, f"{overall_acc:.4f}"] + [f"{acc:.4f}" for acc in class_accs]
+        logger.info("\t".join(map(str, row)))
+
+        # Overall Results Tester
+        tester = ModelTester(trainer)
+        tester.overall_report()
+
+    # Clean up handlers so future calls start fresh
+    for h in logger.handlers:
+        logger.removeHandler(h)
+        h.close()
+       
+    print(f"Model LOSO complete. Logs written to {log_path}")    
+    return model_results
 
 
 def trainClusteringModel(epochs, trainEpochs = 1, chans = 64, nb_clusters = 3):
+    labels = ['T0', 'T1', 'T2']
+    counts = {lab: len(epochs[lab]) for lab in labels if lab in epochs.event_id}
+    counts['total'] = sum(counts.values())
+    print("Epoch counts by class:", counts)
     
+    # Get only epochs from event T0 (rest)
+    epochs = epochs['T0']
+    labels = ['T0', 'T1', 'T2']
+    counts = {lab: len(epochs[lab]) for lab in labels if lab in epochs.event_id}
+    counts['total'] = sum(counts.values())
+    print("Epoch counts by class:", counts)
+
     clustering_model = ClusteringModel(epochs = epochs, nb_clusters=nb_clusters, embedding_dim=32)
     
     # If file exists load file instead
@@ -78,12 +166,7 @@ if True:
     epochs = mne.read_epochs("allsubjects-selectedchannels-epo.fif", preload=True)
 else:
     print("📥 Generating epochs from raw EEG...")
-    loader = DatasetLoader(subjects=range(1, 109), runs=[4, 8, 12], exclude_subjects=[88, 92, 100, 104], channels = [
-    'Fc3.', 'Fc1.', 'Fcz.', 'Fc2.', 'Fc4.',
-    'C5..',  'C3..',  'C1..',  'Cz..',  'C2..',  'C4..',  'C6..',
-    'Cp3.', 'Cp1.', 'Cpz.', 'Cp2.', 'Cp4.',
-    'P7..',  'P3..',  'Pz..',  'P4..',  'P8..'
-    ])
+    loader = DatasetLoader(subjects=range(1, 109), runs=[4, 8, 12], exclude_subjects=[88, 92, 100, 104], channels = ['Fc3.', 'C3..', 'Cz..', 'C4..', 'Fc4.'])
     # loader = DatasetLoader(subjects=range(1, 109), runs=[4, 8, 12], exclude_subjects=[88, 92, 100, 104])
     loader.load_raw_data()
     loader.epochs.save("allsubjects-selectedchannels-epo.fif", overwrite=True)
@@ -97,26 +180,17 @@ print("Data loaded successfully!")
 
 
 # ------------- Training Model -------------
-# Train baseline EEGNet Model
-modelName = "EEGNet_Baseline"
-trainEpochs = 60
-chans = epochs.info['nchan']
-saveName = f"{modelName}_{trainEpochs}epochs_{chans}chans.keras"
+# Train baseline EEGNet Model - LOSO 
 
-trainer = ModelTrainer(epochs, modelName)
-if os.path.exists(saveName):
-    print("Loading existing baseline model...")
-    trainer.model = load_model(saveName, safe_mode = False)
-else:
-    train_epo, val_epo, test_epo = split_subjects(epochs, val_frac=0.1, test_frac=0.2)
-    trainer.train(train_epo, val_epo, test_epo, trainEpochs)
-
-    # Save EEGNet model
-    trainer.model.save(saveName)
-    print("\nModel saved as ", saveName)
+modelName   = "EEGNet_Baseline"
+log_dir     = "./logs/baseline_model"
+trainEpochs = 50
+baseline_results = run_loso_model(epochs, modelName, trainEpochs, log_dir)
 
 
-
+# Shallow Net Model
+# Deep Conv Model
+# EEGNet Model
 
 
 # ------------- Clustering Data -------------
@@ -141,116 +215,58 @@ print("Clustering complete!")
 
 # Train model for each cluster
 # Get a dictionary mapping cluster labels to lists of subjects
-
 modelIndex = 0
+trainEpochs = 50
+log_dir     = "./logs/clustering_models"
+
 for clustering_model in clustering_models:
     modelIndex += 1
-    embeddings, subjects = clustering_model.extract_embeddings()
-    cluster_labels = clustering_model.perform_clustering(embeddings)
 
-    clustered_subjects, counts = clustering_model.analyze_clusters_by_subject(cluster_labels, subjects, mode="majority", threshold=0.8, logPath=f"./logs/Cluster Distribution from Model_{modelIndex}", verbose=True)
-    clusterNumber = 1
+    
+    cluster_dir = f"{log_dir}/ClusterModel{modelIndex}"
+    os.makedirs(cluster_dir, exist_ok=True) 
+    # Prepare the file path
+    logPath = f"{cluster_dir}/Cluster_Distribution_Model_{modelIndex}.txt"
 
-    trainEpochs = 60
-    # Iterate over each cluster in the dictionary
+    # 1. extract & cluster
+    embeddings, subjects     = clustering_model.extract_embeddings()
+    cluster_labels           = clustering_model.perform_clustering(embeddings)
+    clustered_subjects, _    = clustering_model.analyze_clusters_by_subject(
+        cluster_labels,
+        subjects,
+        mode="majority",
+        threshold=0.8,
+        logPath=logPath,
+        verbose=False
+    )
+
+    # 2. for each cluster group, run LOSO with your helper
+    clusterNumber = 0
     for cluster_label, subject_list in clustered_subjects.items():
-        modelName = f"Cluster Model #{modelIndex} Cluster Group #{clusterNumber}"
+        clusterNumber += 1
 
-            
-        # Create a boolean mask: True for epochs whose 'subject' is in subject_list
-        mask = epochs.metadata['subject'].isin(subject_list)
-
-        # Filter epochs using the boolean mask
+        group_name = f"ClusterModel{modelIndex}_Group{clusterNumber}"
+        
+        # mask out only the epochs for subjects in this cluster
+        mask            = epochs.metadata['subject'].isin(subject_list)
         narrowed_epochs = epochs[mask]
 
         if len(narrowed_epochs) <= 2:
-            print(f"Warning: No epochs found for cluster {cluster_label} (#{clusterNumber}).")
+            print(f"⚠️ Skipping cluster {cluster_label} (#{clusterNumber}): too few epochs ({len(narrowed_epochs)})")
             continue
 
-        # (Optional) Print some info to verify the selection
-        print(f"Original number of epochs: {len(epochs)}")
-        print(f"Number of epochs for subjects in cluster {cluster_label} (#{clusterNumber}): {len(narrowed_epochs)}")
-        
-        # Train the model using the narrowed epochs
-        trainer = ModelTrainer(narrowed_epochs, modelName)
-        saveName = f"{modelName}.keras"
-        if os.path.exists(saveName):
-            print("Loading existing clustered model...")
-            trainer.model = load_model(saveName, safe_mode = False)
-        else:
-            train_epo, val_epo, test_epo = split_subjects(narrowed_epochs, val_frac=0.1, test_frac=0.2)
-            trainer.train(train_epo, val_epo, test_epo, trainEpochs)
-            trainer.model.save(saveName)
-            clusterNumber += 1
+        print(f"→ Running LOSO on cluster {cluster_label} (#{clusterNumber}), {len(narrowed_epochs)} epochs")
 
-
-# ------------- Analyse Models -------------
-baseline_log = "./logs/EEGNet_Baseline_training_log.txt"
-
-
-# 2 Clusters
-clustered_logs = [
-    "./logs/Cluster Model #1 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #1 Cluster Group #2_training_log.txt",
-]
-analyser = AnalyseModels(baseline_log, clustered_logs)
-analyser.produceReport()
-
-
-# 3 Clusters
-clustered_logs = [
-
-    "./logs/Cluster Model #2 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #2 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #2 Cluster Group #3_training_log.txt",
-]
-analyser = AnalyseModels(baseline_log, clustered_logs)
-analyser.produceReport()
-
-
-# 4 Clusters
-clustered_logs = [
-    "./logs/Cluster Model #3 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #3 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #3 Cluster Group #3_training_log.txt",
-    "./logs/Cluster Model #3 Cluster Group #4_training_log.txt",
-]
-analyser = AnalyseModels(baseline_log, clustered_logs)
-analyser.produceReport()
-
-
-# 5 Clusters
-clustered_logs = [
-    "./logs/Cluster Model #4 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #3_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #4_training_log.txt",
-    "./logs/Cluster Model #4 Cluster Group #5_training_log.txt",
-]
-analyser = AnalyseModels(baseline_log, clustered_logs)
-analyser.produceReport()
-
-
-# 6 Clusters
-clustered_logs = [
-    "./logs/Cluster Model #5 Cluster Group #1_training_log.txt",
-    "./logs/Cluster Model #5 Cluster Group #2_training_log.txt",
-    "./logs/Cluster Model #5 Cluster Group #3_training_log.txt",
-    "./logs/Cluster Model #5 Cluster Group #4_training_log.txt",
-    "./logs/Cluster Model #5 Cluster Group #5_training_log.txt",
-    "./logs/Cluster Model #5 Cluster Group #6_training_log.txt",
-]
-analyser = AnalyseModels(baseline_log, clustered_logs)
-analyser.produceReport()
-
-
-# ------------- Testing Model -------------
-# model = load_model("eegnet_model.keras")
-# tester = ModelTester(model, epochs)
-# tester.test(random_state=32)
-
-
-# ------------- Saving Model ------------- 
+        # this will:
+        #  • train a separate EEGNet per left‐out subject,
+        #  • log per‐subject & per‐class accuracies to ./logs/<group_name>_…txt
+        #  • return a dict mapping subject → metrics
+        results = run_loso_model(
+            narrowed_epochs,
+            model_name = group_name,
+            n_epochs   = trainEpochs,
+            log_dir    = cluster_dir
+        )
 
 
 
