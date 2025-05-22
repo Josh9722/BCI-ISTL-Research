@@ -7,6 +7,7 @@ from tensorflow.keras.layers import Input, Conv2D, DepthwiseConv2D, SeparableCon
 from tensorflow.keras.layers import BatchNormalization, Activation, AveragePooling2D, Dropout, Flatten, Dense, Lambda
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.utils import Sequence
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
@@ -85,24 +86,38 @@ class ClusteringModel:
         
         return self.embedding_model
 
-    def train_embedding_model(self, train_epochs=10, batch_size=64):
+    def train_embedding_model(self, train_epochs=10, batch_size=64, subjects_per_batch=4):
         """
         Trains the embedding network using TripletSemiHardLoss.
-        Uses subject IDs from metadata as labels to form triplets.
+        Uses subject IDs from metadata as labels to form triplets,
+        sampling each batch with a fixed number of subjects and samples per subject.
         """
+        # 1) Prepare data
         X, subjects = self.prepare_data()
+        subjects = subjects.astype(np.int32)
+
+        # 2) Build & compile model
         self.build_embedding_model()
         print("\nTraining embedding model with TripletSemiHardLoss...")
-        # Ensure the subject labels are in integer format
-        subjects = subjects.astype(np.int32)
         loss_fn = tfa.losses.TripletSemiHardLoss()
-        self.embedding_model.compile(optimizer='adam', loss=loss_fn)
-        history = self.embedding_model.fit(
-            X, subjects,
-            epochs=train_epochs,
+        from tensorflow.keras.optimizers import Adam
+        self.embedding_model.compile(optimizer=Adam(), loss=loss_fn)
+
+        # 3) Create our balanced batch generator
+        generator = SubjectBalancedBatchGenerator(
+            X,
+            subjects,
             batch_size=batch_size,
-            verbose=1,
-            callbacks=[CustomLogger()]
+            subjects_per_batch=subjects_per_batch,
+            shuffle=True
+        )
+
+        # 4) Fit using the generator
+        history = self.embedding_model.fit(
+            generator,
+            epochs=train_epochs,
+            callbacks=[CustomLogger()],
+            verbose=1
         )
         print("\nEmbedding model training complete!")
         return history
@@ -232,3 +247,73 @@ class CustomLogger(Callback):
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
         print(f"Epoch {epoch + 1:02d} | Loss: {logs.get('loss', 0):.4f}")
+
+class SubjectBalancedBatchGenerator(Sequence):
+    """
+    Generates batches by:
+      • Selecting a fixed number of distinct subjects per batch
+      • Sampling a fixed number of T0 epochs per subject
+    Ensures: ≥2 subjects per batch, and a uniform number of samples per subject.
+    """
+
+    def __init__(self, X, subjects, batch_size, subjects_per_batch, shuffle=True):
+        """
+        X:               np.ndarray, shape (n_epochs, n_chans, n_times, 1)
+        subjects:        np.ndarray of ints, shape (n_epochs,)
+        batch_size:      int, must equal subjects_per_batch * samples_per_subject
+        subjects_per_batch: int, ≥2
+        shuffle:         whether to reshuffle subjects each epoch
+        """
+        self.X = X
+        self.subjects = subjects
+        self.batch_size = batch_size
+        self.spb = subjects_per_batch
+        if self.spb < 2:
+            raise ValueError("Need at least 2 subjects per batch")
+        if batch_size % subjects_per_batch != 0:
+            raise ValueError("batch_size must be divisible by subjects_per_batch")
+        self.sps = batch_size // subjects_per_batch  # samples per subject
+        self.shuffle = shuffle
+
+        # Build mapping: subject → [indices of X]
+        self.subj_to_inds = {}
+        for idx, subj in enumerate(subjects):
+            self.subj_to_inds.setdefault(subj, []).append(idx)
+        self.unique_subjects = np.array(list(self.subj_to_inds.keys()), dtype=int)
+        self.on_epoch_end()
+
+    def __len__(self):
+        # We’ll cover all samples each epoch by drawing batches until we've
+        # sampled roughly len(self.unique_subjects)/self.spb groups—
+        # Keras will repeat the generator if necessary.
+        return int(np.ceil(len(self.subjects) / self.batch_size))
+
+    def on_epoch_end(self):
+        if self.shuffle:
+            np.random.shuffle(self.unique_subjects)
+
+    def __getitem__(self, idx):
+        """
+        Returns one batch of shape (batch_size, ...).
+        We ignore idx for simplicity and just draw random groups each call.
+        """
+        # 1) Pick `subjects_per_batch` distinct subjects
+        chosen_subjs = np.random.choice(
+            self.unique_subjects, size=self.spb, replace=False
+        )
+
+        inds = []
+        # 2) For each chosen subject, sample `samples_per_subject` indices
+        for subj in chosen_subjs:
+            pool = self.subj_to_inds[subj]
+            if len(pool) >= self.sps:
+                picks = np.random.choice(pool, size=self.sps, replace=False)
+            else:
+                # if too few, sample with replacement
+                picks = np.random.choice(pool, size=self.sps, replace=True)
+            inds.extend(picks)
+
+        inds = np.array(inds, dtype=int)
+        batch_X = self.X[inds]
+        batch_y = self.subjects[inds]
+        return batch_X, batch_y
