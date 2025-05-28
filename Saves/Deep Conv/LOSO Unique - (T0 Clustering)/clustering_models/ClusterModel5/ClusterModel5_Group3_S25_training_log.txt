@@ -1,0 +1,64 @@
+Training Log
+============
+Epoch 01/50 | Loss: 1.1952 | Acc: 0.3956 | Val Loss: 1.1722 | Val Acc: 0.2556 | Time:  5.77s
+Epoch 02/50 | Loss: 1.1505 | Acc: 0.4285 | Val Loss: 1.2199 | Val Acc: 0.2667 | Time:  5.69s
+Epoch 03/50 | Loss: 1.0971 | Acc: 0.4576 | Val Loss: 1.9786 | Val Acc: 0.2556 | Time:  5.89s
+Epoch 04/50 | Loss: 1.0679 | Acc: 0.4703 | Val Loss: 1.3617 | Val Acc: 0.3000 | Time:  6.03s
+Epoch 05/50 | Loss: 1.0478 | Acc: 0.4844 | Val Loss: 1.2658 | Val Acc: 0.3000 | Time:  6.31s
+Epoch 06/50 | Loss: 1.0313 | Acc: 0.4910 | Val Loss: 1.4860 | Val Acc: 0.3444 | Time:  6.71s
+Epoch 07/50 | Loss: 1.0056 | Acc: 0.5006 | Val Loss: 1.2730 | Val Acc: 0.3333 | Time:  6.20s
+Epoch 08/50 | Loss: 0.9990 | Acc: 0.4981 | Val Loss: 1.0055 | Val Acc: 0.4111 | Time:  6.44s
+Epoch 09/50 | Loss: 0.9916 | Acc: 0.5125 | Val Loss: 1.1693 | Val Acc: 0.3778 | Time:  5.99s
+Epoch 10/50 | Loss: 0.9754 | Acc: 0.5274 | Val Loss: 1.0162 | Val Acc: 0.4000 | Time:  6.10s
+Epoch 11/50 | Loss: 0.9815 | Acc: 0.5196 | Val Loss: 1.0038 | Val Acc: 0.4778 | Time:  5.75s
+Epoch 12/50 | Loss: 0.9666 | Acc: 0.5312 | Val Loss: 1.0477 | Val Acc: 0.4333 | Time:  5.84s
+Epoch 13/50 | Loss: 0.9578 | Acc: 0.5269 | Val Loss: 1.0143 | Val Acc: 0.4556 | Time:  6.26s
+Epoch 14/50 | Loss: 0.9624 | Acc: 0.5315 | Val Loss: 0.9327 | Val Acc: 0.5111 | Time:  5.83s
+Epoch 15/50 | Loss: 0.9609 | Acc: 0.5305 | Val Loss: 0.9909 | Val Acc: 0.4889 | Time:  6.18s
+Epoch 16/50 | Loss: 0.9523 | Acc: 0.5411 | Val Loss: 0.9109 | Val Acc: 0.5444 | Time:  5.89s
+Epoch 17/50 | Loss: 0.9571 | Acc: 0.5371 | Val Loss: 0.8654 | Val Acc: 0.6222 | Time:  6.06s
+Epoch 18/50 | Loss: 0.9452 | Acc: 0.5462 | Val Loss: 0.9393 | Val Acc: 0.5556 | Time:  6.01s
+Epoch 19/50 | Loss: 0.9380 | Acc: 0.5479 | Val Loss: 0.9334 | Val Acc: 0.5222 | Time:  6.29s
+Epoch 20/50 | Loss: 0.9584 | Acc: 0.5285 | Val Loss: 0.8928 | Val Acc: 0.4778 | Time:  6.20s
+Epoch 21/50 | Loss: 0.9356 | Acc: 0.5459 | Val Loss: 0.9495 | Val Acc: 0.4667 | Time:  6.47s
+Epoch 22/50 | Loss: 0.9320 | Acc: 0.5454 | Val Loss: 0.8905 | Val Acc: 0.5444 | Time:  6.98s
+Epoch 23/50 | Loss: 0.9332 | Acc: 0.5520 | Val Loss: 0.8566 | Val Acc: 0.6000 | Time:  6.01s
+Epoch 24/50 | Loss: 0.9261 | Acc: 0.5482 | Val Loss: 0.8261 | Val Acc: 0.6000 | Time:  6.37s
+Epoch 25/50 | Loss: 0.9289 | Acc: 0.5490 | Val Loss: 0.8611 | Val Acc: 0.6000 | Time:  6.43s
+Epoch 26/50 | Loss: 0.9339 | Acc: 0.5482 | Val Loss: 0.8760 | Val Acc: 0.5444 | Time:  6.04s
+Epoch 27/50 | Loss: 0.9231 | Acc: 0.5439 | Val Loss: 0.9068 | Val Acc: 0.5222 | Time:  6.41s
+Epoch 28/50 | Loss: 0.9304 | Acc: 0.5517 | Val Loss: 0.9060 | Val Acc: 0.5222 | Time:  6.16s
+Epoch 29/50 | Loss: 0.9248 | Acc: 0.5507 | Val Loss: 0.8293 | Val Acc: 0.6000 | Time:  6.81s
+Epoch 30/50 | Loss: 0.9157 | Acc: 0.5606 | Val Loss: 0.8767 | Val Acc: 0.5778 | Time:  6.08s
+Epoch 31/50 | Loss: 0.9227 | Acc: 0.5586 | Val Loss: 0.8143 | Val Acc: 0.6333 | Time:  6.21s
+Epoch 32/50 | Loss: 0.9127 | Acc: 0.5682 | Val Loss: 0.8191 | Val Acc: 0.6111 | Time:  5.66s
+Epoch 33/50 | Loss: 0.9178 | Acc: 0.5586 | Val Loss: 0.8167 | Val Acc: 0.6000 | Time:  5.99s
+Epoch 34/50 | Loss: 0.9110 | Acc: 0.5783 | Val Loss: 0.8092 | Val Acc: 0.6333 | Time:  6.24s
+Epoch 35/50 | Loss: 0.9166 | Acc: 0.5474 | Val Loss: 0.8411 | Val Acc: 0.5889 | Time:  6.52s
+Epoch 36/50 | Loss: 0.9235 | Acc: 0.5570 | Val Loss: 0.8479 | Val Acc: 0.6333 | Time:  6.16s
+Epoch 37/50 | Loss: 0.9079 | Acc: 0.5730 | Val Loss: 0.8260 | Val Acc: 0.6222 | Time:  6.55s
+Epoch 38/50 | Loss: 0.9134 | Acc: 0.5555 | Val Loss: 0.8636 | Val Acc: 0.5667 | Time:  7.47s
+Epoch 39/50 | Loss: 0.9094 | Acc: 0.5674 | Val Loss: 0.7985 | Val Acc: 0.5889 | Time:  6.74s
+Epoch 40/50 | Loss: 0.9012 | Acc: 0.5692 | Val Loss: 0.7908 | Val Acc: 0.6556 | Time:  5.90s
+Epoch 41/50 | Loss: 0.9122 | Acc: 0.5586 | Val Loss: 0.8190 | Val Acc: 0.6000 | Time:  5.63s
+Epoch 42/50 | Loss: 0.8941 | Acc: 0.5727 | Val Loss: 0.7924 | Val Acc: 0.6222 | Time:  6.09s
+Epoch 43/50 | Loss: 0.9014 | Acc: 0.5626 | Val Loss: 0.7964 | Val Acc: 0.6222 | Time:  5.87s
+Epoch 44/50 | Loss: 0.9001 | Acc: 0.5705 | Val Loss: 0.8858 | Val Acc: 0.5889 | Time:  6.12s
+Epoch 45/50 | Loss: 0.9001 | Acc: 0.5611 | Val Loss: 0.8092 | Val Acc: 0.6222 | Time:  5.72s
+Epoch 46/50 | Loss: 0.8985 | Acc: 0.5679 | Val Loss: 0.8054 | Val Acc: 0.6444 | Time:  5.74s
+Epoch 47/50 | Loss: 0.9005 | Acc: 0.5717 | Val Loss: 0.8230 | Val Acc: 0.5889 | Time:  5.96s
+Epoch 48/50 | Loss: 0.8898 | Acc: 0.5710 | Val Loss: 0.8157 | Val Acc: 0.5889 | Time:  5.85s
+Epoch 49/50 | Loss: 0.8853 | Acc: 0.5844 | Val Loss: 0.8283 | Val Acc: 0.6000 | Time:  6.28s
+Epoch 50/50 | Loss: 0.8869 | Acc: 0.5844 | Val Loss: 0.8319 | Val Acc: 0.5778 | Time:  6.10s
+
+Classification Report (test set):
+                 precision    recall  f1-score   support
+
+      T0 (Rest)       0.96      0.58      0.72        45
+ T1 (Left-Hand)       0.36      0.64      0.46        22
+T2 (Right-Hand)       0.50      0.52      0.51        23
+
+       accuracy                           0.58        90
+      macro avg       0.61      0.58      0.56        90
+   weighted avg       0.70      0.58      0.60        90
+
