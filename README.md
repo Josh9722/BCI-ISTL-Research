@@ -2,16 +2,14 @@
 
 ## Overview
 
-This repository supports research aimed at enhancing **Inter-Subject Transfer Learning (ISTL)** for **Brain-Computer Interfaces (BCI)**. The focus is on addressing inter-subject variability in EEG data to improve model generalization across diverse subjects. Using the **EEG Motor Movement/Imagery Dataset (EEGMMIDB)** from PhysioNet, this project explores advanced clustering, feature extraction, and meta-learning techniques to minimize the need for individual fine-tuning while maintaining accuracy.
-
+This repository supports research aimed at enhancing **Inter-Subject Transfer Learning (ISTL)** for **Brain-Computer Interfaces (BCI)**. The focus is on addressing inter-subject variability in EEG data to improve model generalization across diverse subjects. Using the **EEG Motor Movement/Imagery Dataset (EEGMMIDB)** from PhysioNet
 ---
 
 ## Objectives
 
 - Investigate clustering techniques for grouping individuals with similar EEG patterns.
-- Evaluate the effectiveness of phenotype-based and feature-based clustering methods.
-- Develop a meta-learning framework to integrate group-specific models for final predictions.
-- Optimize preprocessing, feature extraction, and model training for inter-subject variability.
+- Evaluate the effectiveness of clustering methods.
+- Provide a modular pipeline to build off for investigatory analysis into model cluster performance 
 
 ---
 
