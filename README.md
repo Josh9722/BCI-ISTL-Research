@@ -2,7 +2,8 @@
 
 ## Overview
 
-This repository supports research aimed at enhancing **Inter-Subject Transfer Learning (ISTL)** for **Brain-Computer Interfaces (BCI)**. The focus is on addressing inter-subject variability in EEG data to improve model generalization across diverse subjects. Using the **EEG Motor Movement/Imagery Dataset (EEGMMIDB)** from PhysioNet
+This repository supports research aimed at enhancing Inter-Subject Transfer Learning (ISTL) for Brain-Computer Interfaces (BCI). The focus is on addressing inter-subject variability in EEG data to improve model generalization across diverse subjects. Using the **EEG Motor Movement/Imagery Dataset (EEGMMIDB)** from PhysioNet
+
 ---
 
 ## Objectives
